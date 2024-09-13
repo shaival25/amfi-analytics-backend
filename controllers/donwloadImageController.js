@@ -5,7 +5,9 @@ const config = require("../config/config");
 
 exports.downloadImages = async (req, res) => {
   const { filename } = req.params;
-  const busName = await BusController.getBusName(config.macAddress); // Get the bus name dynamically
+  const { macAddress } = req.params;
+
+  const busName = await BusController.getBusName(macAddress); // Get the bus name dynamically
   const uploadsFolder = path.join(
     __dirname,
     `../uploads/${busName}/photo-booth-images`

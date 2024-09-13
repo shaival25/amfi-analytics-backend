@@ -8,6 +8,15 @@ const uploadsFolder = path.join(__dirname, "../uploads");
 const redis = require("../config/redisClient");
 module.exports = {
   generateQR: async (req, res) => {
+    const fileArray = req.body.Files.image; // This is an array
+    if (fileArray && fileArray.length > 0) {
+      const file = fileArray[0];
+      console.log(file.newFilename);
+
+      next();
+    } else {
+      return res.status(400).json({ error: "File data is missing" });
+    }
     try {
       const image = req.imageName;
       const mascot = req.body.mascot;

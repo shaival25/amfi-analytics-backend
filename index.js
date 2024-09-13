@@ -44,9 +44,9 @@ app.use("/api/person-counter", personCounterRoutes);
 
 // Create HTTPS server
 
-// app.listen(() => console.log(`Server started on port ${config.port}`));
-const httpsServer = https.createServer(credentials, app);
+app.listen(() => console.log(`Server started on port ${config.port}`));
+// const httpsServer = https.createServer(credentials, app);
 // Start server
-httpsServer.listen(config.port, () => {
-  console.log(`Server running on port ${config.port}`);
-});
+// httpsServer.listen(config.port, () => {
+//   console.log(`Server running on port ${config.port}`);
+// });

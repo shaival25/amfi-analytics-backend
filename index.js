@@ -8,6 +8,8 @@ const permissionRoutes = require("./routes/permissionRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
 const personCounterRoutes = require("./routes/personCounterRoutes");
 const faceDetectionRoutes = require("./routes/faceDetectionRoutes");
+const generateQrRoutes = require("./routes/generateQRRoutes");
+const donwloadsRoutes = require("./routes/downloadRoutes");
 
 const fs = require("fs");
 const path = require("path");
@@ -30,18 +32,21 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
 // Routes
+
+app.use("/downloads", donwloadsRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api", roleRoutes);
 app.use("/api", permissionRoutes);
 app.use("/api/face-detection", faceDetectionRoutes);
+app.use("/api", generateQrRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/person-counter", personCounterRoutes);
 
 // Create HTTPS server
 
-app.listen(() => console.log(`Server started on port ${config.port}`));
-// const httpsServer = https.createServer(credentials, app);
-// // Start server
-// httpsServer.listen(config.port, () => {
-//   console.log(`Server running on port ${config.port}`);
-// });
+// app.listen(() => console.log(`Server started on port ${config.port}`));
+const httpsServer = https.createServer(credentials, app);
+// Start server
+httpsServer.listen(config.port, () => {
+  console.log(`Server running on port ${config.port}`);
+});

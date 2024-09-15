@@ -1,7 +1,6 @@
 const Bus = require("../models/bus");
 
 exports.getBusName = (macAddress) => {
-  // console.log(macAddress);
   return new Promise((resolve, reject) => {
     Bus.findOne({ macAddress })
       .then((bus) => {
@@ -15,4 +14,14 @@ exports.getBusName = (macAddress) => {
         reject(err);
       });
   });
+};
+
+exports.getAllBuses = async (req, res) => {
+  try {
+    const Buses = await Bus.find({}, { macAddress: 1, busName: 1 });
+    res.status(200).json(Buses);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: error.message });
+  }
 };

@@ -2,7 +2,6 @@ const FaceDetection = require("../models/faceDetection");
 const path = require("path");
 const uploadsFolder = path.join(__dirname, "../uploads");
 const fs = require("fs");
-const redis = require("../config/redisClient");
 const BusController = require("../controllers/busController");
 
 exports.getFaceDetections = async (req, res) => {
@@ -50,7 +49,6 @@ exports.deleteFaceDetection = async (req, res) => {
       { _id: { $in: selectedRows } },
       { $set: { deleted_at: Date.now() } }
     );
-    await redis.del("full_count");
     res.status(200).json({ message: "Deleted successfully" });
   } catch (err) {
     res.status(500).json({ message: err.message });

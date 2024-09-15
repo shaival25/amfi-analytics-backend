@@ -4,25 +4,30 @@ const analyticsController = require("../controllers/analyticsController");
 const authenticate = require("../middleware/authMiddleware");
 const checkRole = require("../middleware/permissionMiddleware");
 
-router.get(
+router.post(
   "/live-count/:range",
   authenticate,
   checkRole(["analytics:read"]),
   analyticsController.getCountByRange
 );
-router.get(
+router.post(
   "/mascot-count",
   authenticate,
   checkRole(["analytics:read"]),
   analyticsController.getMascotCount
 );
 
-router.get(
+router.post(
   "/full-count",
   authenticate,
   checkRole(["analytics:read"]),
   analyticsController.getFaceDetectionCount
 );
 
-router.get("/person-count", analyticsController.getPersonCount);
+router.post(
+  "/person-count",
+  authenticate,
+  checkRole(["analytics:read"]),
+  analyticsController.getPersonCount
+);
 module.exports = router;

@@ -1,8 +1,8 @@
 const FaceDetection = require("../models/faceDetection");
 const GenerateQR = require("../models/generateQR");
 const PersonCounter = require("../models/personCounter");
-const redis = require("../config/redisClient");
 exports.getCountForLastHour = async (req, res) => {
+  const busIds = req.body.selectedBuses || {};
   const endTime = new Date();
   const startTime = new Date(endTime.getTime() - 60 * 60 * 1000); // 1 hour ago
 
@@ -31,9 +31,16 @@ exports.getCountForLastHour = async (req, res) => {
   // Query the database for each interval
   const counts = await Promise.all(
     intervals.map(async ({ start, end }) => {
-      const count = await FaceDetection.countDocuments({
+      let query = {
         created_at: { $gte: start, $lt: end },
-      });
+      };
+
+      // If busIds is provided and not empty, add it to the query
+      if (busIds[0] !== "all") {
+        query.macAddress = { $in: busIds };
+      }
+
+      const count = await FaceDetection.countDocuments(query);
       return count;
     })
   );
@@ -42,6 +49,7 @@ exports.getCountForLastHour = async (req, res) => {
 };
 
 exports.getCountForLastSixHours = async (req, res) => {
+  const busIds = req.body.selectedBuses || {};
   const endTime = new Date();
   const startTime = new Date(endTime.getTime() - 5 * 60 * 60 * 1000); // 6 hours ago
 
@@ -70,9 +78,16 @@ exports.getCountForLastSixHours = async (req, res) => {
   // Query the database for each interval
   const counts = await Promise.all(
     intervals.map(async ({ start, end }) => {
-      const count = await FaceDetection.countDocuments({
+      let query = {
         created_at: { $gte: start, $lt: end },
-      });
+      };
+
+      // If busIds is provided and not empty, add it to the query
+      if (busIds[0] !== "all") {
+        query.macAddress = { $in: busIds };
+      }
+
+      const count = await FaceDetection.countDocuments(query);
       return count;
     })
   );
@@ -81,6 +96,7 @@ exports.getCountForLastSixHours = async (req, res) => {
 };
 
 exports.getCountForLastTwentyFourHours = async (req, res) => {
+  const busIds = req.body.selectedBuses || {};
   const endTime = new Date();
   const startTime = new Date(endTime.getTime() - 23 * 60 * 60 * 1000); // 24 hours ago
 
@@ -112,9 +128,16 @@ exports.getCountForLastTwentyFourHours = async (req, res) => {
   // Query the database for each interval
   const counts = await Promise.all(
     intervals.map(async ({ start, end }) => {
-      const count = await FaceDetection.countDocuments({
+      let query = {
         created_at: { $gte: start, $lt: end },
-      });
+      };
+
+      // If busIds is provided and not empty, add it to the query
+      if (busIds[0] !== "all") {
+        query.macAddress = { $in: busIds };
+      }
+
+      const count = await FaceDetection.countDocuments(query);
       return count;
     })
   );
@@ -123,6 +146,7 @@ exports.getCountForLastTwentyFourHours = async (req, res) => {
 };
 
 exports.getCountForLastMonth = async (req, res) => {
+  const busIds = req.body.selectedBuses || {};
   const endTime = new Date();
   const startTime = new Date(
     endTime.getFullYear(),
@@ -155,9 +179,16 @@ exports.getCountForLastMonth = async (req, res) => {
   // Query the database for each interval
   const counts = await Promise.all(
     intervals.map(async ({ start, end }) => {
-      const count = await FaceDetection.countDocuments({
+      let query = {
         created_at: { $gte: start, $lt: end },
-      });
+      };
+
+      // If busIds is provided and not empty, add it to the query
+      if (busIds[0] !== "all") {
+        query.macAddress = { $in: busIds };
+      }
+
+      const count = await FaceDetection.countDocuments(query);
       return count;
     })
   );
@@ -166,6 +197,8 @@ exports.getCountForLastMonth = async (req, res) => {
 };
 
 exports.getCountForLastYear = async (req, res) => {
+  const busIds = req.body.selectedBuses || {};
+
   const endTime = new Date(); // Current date
   const startTime = new Date(
     endTime.getFullYear() - 1,
@@ -201,9 +234,16 @@ exports.getCountForLastYear = async (req, res) => {
   // Query the database for each interval
   const counts = await Promise.all(
     intervals.map(async ({ start, end }) => {
-      const count = await FaceDetection.countDocuments({
+      let query = {
         created_at: { $gte: start, $lt: end },
-      });
+      };
+
+      // If busIds is provided and not empty, add it to the query
+      if (busIds[0] !== "all") {
+        query.macAddress = { $in: busIds };
+      }
+
+      const count = await FaceDetection.countDocuments(query);
       return count;
     })
   );
@@ -229,14 +269,14 @@ exports.getCountByRange = async (req, res) => {
 };
 
 exports.getFaceDetectionCount = async (req, res) => {
+  const busIds = req.body.selectedBuses || {};
+  const query = {};
+
+  if (busIds[0] !== "all") {
+    query.macAddress = { $in: busIds };
+  }
   try {
-    const cachedData = await redis.get("full_count");
-    if (cachedData) {
-      res.status(200).json(JSON.parse(cachedData));
-      return;
-    }
-    const count = await FaceDetection.countDocuments();
-    await redis.set("full_count", JSON.stringify(count), "EX", 3600);
+    const count = await FaceDetection.countDocuments(query);
     res.status(200).json(count);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -244,47 +284,42 @@ exports.getFaceDetectionCount = async (req, res) => {
 };
 
 exports.getMascotCount = async (req, res) => {
+  const busIds = req.body.selectedBuses || {};
+
+  const query = {};
+
+  if (busIds[0] !== "all") {
+    query.macAddress = { $in: busIds };
+  }
   try {
-    const cachedData = await redis.get("mascot_count");
-    if (cachedData) {
-      res.status(200).json(JSON.parse(cachedData));
-      return;
-    }
-    const generateQR = await GenerateQR.find({}, { mascot: 1 });
+    const generateQR = await GenerateQR.find(query, { mascot: 1 });
     const sachinCount = generateQR.filter((fd) => fd.mascot === 0).length;
     const rohitCount = generateQR.filter((fd) => fd.mascot === 1).length;
     const dhoniCount = generateQR.filter((fd) => fd.mascot === 2).length;
 
-    await redis.set(
-      "mascot_count",
-      JSON.stringify({
-        totalCount: generateQR.length,
-        cricketer: {
-          sachin: sachinCount,
-          rohit: rohitCount,
-          dhoni: dhoniCount,
-        },
-      })
-    );
-
-    res
-      .status(200)
-      .json({ sachin: sachinCount, rohit: rohitCount, dhoni: dhoniCount });
+    res.status(200).json({
+      totalCount: generateQR.length,
+      cricketer: {
+        sachin: sachinCount,
+        rohit: rohitCount,
+        dhoni: dhoniCount,
+      },
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
 exports.getPersonCount = async (req, res) => {
+  const busIds = req.body.selectedBuses || {};
+  const query = {};
+
+  if (busIds[0] !== "all") {
+    query.macAddress = { $in: busIds };
+  }
   try {
-    const cachedData = await redis.get("person_count");
-    if (cachedData) {
-      res.status(200).json(JSON.parse(cachedData));
-      return;
-    }
-    const personCount = await PersonCounter.findOne();
-    await redis.set("person_count", JSON.stringify(personCount), "EX", 3600);
-    res.status(200).json(personCount);
+    const personCount = await PersonCounter.findOne(query);
+    res.status(200).json(personCount.counter);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

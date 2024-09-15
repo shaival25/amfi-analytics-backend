@@ -11,7 +11,6 @@ module.exports = {
     const fileArray = req.body.Files.image; // This is an array
     if (fileArray && fileArray.length > 0) {
       const file = fileArray[0];
-      console.log(file.newFilename);
 
       next();
     } else {

@@ -11,10 +11,10 @@ const roleRoutes = require("./routes/roleRoutes");
 const userRoutes = require("./routes/userRoutes");
 const permissionRoutes = require("./routes/permissionRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
-const faceDetectionRoutes = require("./routes/faceDetectionRoutes");
 const generateQrRoutes = require("./routes/generateQRRoutes");
 const donwloadsRoutes = require("./routes/downloadRoutes");
 const busRoutes = require("./routes/busRoutes");
+const bnyGeneralRoutes = require("./routes/bnyGeneralRoutes");
 
 const fs = require("fs");
 const path = require("path");
@@ -41,10 +41,10 @@ app.use("/downloads", donwloadsRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api", roleRoutes);
 app.use("/api", permissionRoutes);
-app.use("/api/face-detection", faceDetectionRoutes);
 app.use("/api", generateQrRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/bus", busRoutes);
+app.use("/api/bnyGeneral", bnyGeneralRoutes);
 
 // Create HTTPS server
 

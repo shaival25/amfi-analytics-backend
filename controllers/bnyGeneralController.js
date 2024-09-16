@@ -1,16 +1,16 @@
-const FaceDetection = require("../models/faceDetection");
+const BnyGeneral = require("../models/bnyGeneral");
 const path = require("path");
 const uploadsFolder = path.join(__dirname, "../uploads");
 const fs = require("fs");
-const BusController = require("../controllers/busController");
+const BusController = require("./busController");
 
-exports.getFaceDetections = async (req, res) => {
+exports.getBnyGeneral = async (req, res) => {
   try {
-    const faceDetections = await FaceDetection.find({ deleted_at: null });
-    const modifiedFaceDetections = faceDetections.map((fd) => {
+    const bnyGenerals = await BnyGeneral.find({ deleted_at: null });
+    const modifiedBnyGenerals = bnyGenerals.map((fd) => {
       return {
         ...fd._doc,
-        image: `/api/face-detection/view/${fd.image}/${fd.macAddress}`,
+        image: `/api/bnyGeneral/view/${fd.image}/${fd.macAddress}`,
       };
     });
     res.status(200).json(modifiedFaceDetections);
@@ -41,11 +41,11 @@ exports.getImages = async (req, res) => {
   }
 };
 
-exports.deleteFaceDetection = async (req, res) => {
+exports.deleteBnyGeneral = async (req, res) => {
   try {
     const { selectedRows } = req.body;
 
-    await FaceDetection.updateMany(
+    await BnyGeneral.updateMany(
       { _id: { $in: selectedRows } },
       { $set: { deleted_at: Date.now() } }
     );

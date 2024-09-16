@@ -55,22 +55,22 @@ const permissions = [
     description: "Read permissions",
   },
   //   {
-  //     name: "faceDetection:write",
+  //     name: "bnyGeneral:write",
   //     description: "Add face detections data",
   //   },
   {
-    name: "faceDetection:read",
-    permissionType: "faceDetection",
+    name: "bnyGeneral:read",
+    permissionType: "bnyGeneral",
     description: "Read face detections data",
   },
   {
-    name: "faceDetection:delete",
-    permissionType: "faceDetection",
+    name: "bnyGeneral:delete",
+    permissionType: "bnyGeneral",
     description: "Delete face detections data",
   },
   {
     name: "analytics:read",
-    permissionType: "analytics",
+    permissionType: "bnyGeneral",
     description: "Read analytics data",
   },
   // Add more permissions as needed

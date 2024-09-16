@@ -1,4 +1,4 @@
-const FaceDetection = require("../models/faceDetection");
+const BnyGeneral = require("../models/bnyGeneral");
 const GenerateQR = require("../models/generateQR");
 const PersonCounter = require("../models/personCounter");
 exports.getCountForLastHour = async (req, res) => {
@@ -40,7 +40,7 @@ exports.getCountForLastHour = async (req, res) => {
         query.macAddress = { $in: busIds };
       }
 
-      const count = await FaceDetection.countDocuments(query);
+      const count = await BnyGeneral.countDocuments(query);
       return count;
     })
   );
@@ -87,7 +87,7 @@ exports.getCountForLastSixHours = async (req, res) => {
         query.macAddress = { $in: busIds };
       }
 
-      const count = await FaceDetection.countDocuments(query);
+      const count = await BnyGeneral.countDocuments(query);
       return count;
     })
   );
@@ -137,7 +137,7 @@ exports.getCountForLastTwentyFourHours = async (req, res) => {
         query.macAddress = { $in: busIds };
       }
 
-      const count = await FaceDetection.countDocuments(query);
+      const count = await BnyGeneral.countDocuments(query);
       return count;
     })
   );
@@ -188,7 +188,7 @@ exports.getCountForLastMonth = async (req, res) => {
         query.macAddress = { $in: busIds };
       }
 
-      const count = await FaceDetection.countDocuments(query);
+      const count = await BnyGeneral.countDocuments(query);
       return count;
     })
   );
@@ -243,7 +243,7 @@ exports.getCountForLastYear = async (req, res) => {
         query.macAddress = { $in: busIds };
       }
 
-      const count = await FaceDetection.countDocuments(query);
+      const count = await BnyGeneral.countDocuments(query);
       return count;
     })
   );
@@ -276,7 +276,7 @@ exports.getFaceDetectionCount = async (req, res) => {
     query.macAddress = { $in: busIds };
   }
   try {
-    const count = await FaceDetection.countDocuments(query);
+    const count = await BnyGeneral.countDocuments(query);
     res.status(200).json(count);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -319,8 +319,9 @@ exports.getPersonCount = async (req, res) => {
   }
   try {
     const personCount = await PersonCounter.findOne(query);
-    res.status(200).json(personCount.counter);
+    res.status(200).json(personCount ? personCount.counter : 0);
   } catch (err) {
+    console.log(err);
     res.status(500).json({ message: err.message });
   }
 };

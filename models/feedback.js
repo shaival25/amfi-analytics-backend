@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const config = require("../config/config");
 
 const feedbackSchema = new mongoose.Schema({
+  userId: { type: mongoose.Types.ObjectId, ref: "BnyGeneral", required: true },
   question: {
     type: String,
     required: true,

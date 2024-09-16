@@ -9,7 +9,6 @@ const redis = require("../config/redisClient");
 const config = require("../config/config");
 
 exports.uploadImage = async (req, res) => {
-  console.log("here");
   const form = new formidable.IncomingForm({
     keepExtensions: true, // Keep file extensions
     uploadDir: path.join(__dirname, "../temp"), // Relative path for temporary file upload

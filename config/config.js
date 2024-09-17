@@ -32,4 +32,6 @@ module.exports = {
   mongoURI: process.env.MONGO_URI || "mongodb://localhost:27017/faceAdminDB",
   server_url: process.env.SERVER_URL || "http://192.168.29.177:5000",
   macAddress: process.env.MAC_ADDRESS || "08-71-90-32-8B-2E",
+  atlasURI: process.env.ATLAS_URL,
+  pingURL: process.env.PING_URL
 };

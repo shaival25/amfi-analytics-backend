@@ -7,8 +7,8 @@ const checkPermission = require("../middleware/permissionMiddleware");
 // Get permissions
 router.get(
   "/permissions",
-  // authenticate,
-  // checkPermission("permissions:read"),
+  authenticate,
+  checkPermission("permissions:read"),
   permissionController.getPermissionsWithTypes
 );
 

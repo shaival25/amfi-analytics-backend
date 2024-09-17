@@ -70,7 +70,7 @@ const permissions = [
   },
   {
     name: "analytics:read",
-    permissionType: "bnyGeneral",
+    permissionType: "analytics",
     description: "Read analytics data",
   },
   // Add more permissions as needed

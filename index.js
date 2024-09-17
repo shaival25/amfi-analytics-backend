@@ -37,6 +37,13 @@ app.use(cors());
 
 // Routes
 
+app.use("/api/hello", (req, res) => {
+  try {
+    res.status(200).json({ message: true });
+  } catch (err) {
+    res.status(500);
+  }
+});
 app.use("/downloads", donwloadsRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api", roleRoutes);

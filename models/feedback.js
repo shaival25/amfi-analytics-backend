@@ -9,7 +9,6 @@ const feedbackSchema = new mongoose.Schema({
   },
   response: {
     type: String,
-    enum: ["excellent", "good", "average", "poor"], // Restrict the options to these values
     required: true,
   },
   macAddress: {

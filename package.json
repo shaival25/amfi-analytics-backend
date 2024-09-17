@@ -5,17 +5,20 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "create-superadmin": "node scripts/createSuperAdmin.js",
-    "populate-permissions": "node scripts/populatePermissions.js"
+    "populate-permissions": "node scripts/populatePermissions.js",
+    "dev": "node index.js"
   },
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "axios": "^1.7.7",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "formidable": "^3.5.1",
+    "fs": "^0.0.1-security",
     "https": "^1.0.0",
     "ioredis": "^5.4.1",
     "jsonwebtoken": "^9.0.2",

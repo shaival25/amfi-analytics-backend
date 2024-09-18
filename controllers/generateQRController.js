@@ -39,8 +39,14 @@ module.exports = {
         qrImageUrl: filename,
         mascot,
       });
+      await redis.scan(0, "match", "mascotCount:*").then((keys) => {
+        for (const key of keys) {
+          if (key.length > 0) {
+            redis.del(key);
+          }
+        }
+      });
       await newQR.save();
-      await redis.del("mascot_count");
 
       res.status(201).json({
         qrImageUrl: `${config.server_url}/api/qr-image/${filename}`,

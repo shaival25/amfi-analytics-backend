@@ -30,4 +30,12 @@ router.post(
   checkRole(["analytics:read"]),
   analyticsController.getPersonCount
 );
+
+router.post(
+  "/feedback-count",
+  authenticate,
+  checkRole(["analytics:read"]),
+  analyticsController.getFeedbackCount
+);
+
 module.exports = router;

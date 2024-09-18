@@ -2,6 +2,7 @@ const BnyGeneral = require("../models/bnyGeneral");
 const GenerateQR = require("../models/generateQR");
 const PersonCounter = require("../models/personCounter");
 const redis = require("../config/redisClient");
+const Feedback = require("../models/feedback");
 exports.getCountForLastHour = async (req, res) => {
   const busIds = req.body.selectedBuses || {};
   const endTime = new Date();

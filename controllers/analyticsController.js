@@ -1,6 +1,8 @@
 const BnyGeneral = require("../models/bnyGeneral");
 const GenerateQR = require("../models/generateQR");
 const PersonCounter = require("../models/personCounter");
+const redis = require("../config/redisClient");
+const Feedback = require("../models/feedback");
 exports.getCountForLastHour = async (req, res) => {
   const busIds = req.body.selectedBuses || {};
   const endTime = new Date();
@@ -291,20 +293,41 @@ exports.getMascotCount = async (req, res) => {
   if (busIds[0] !== "all") {
     query.macAddress = { $in: busIds };
   }
+
+  const cacheKey = `mascotCount:${busIds.join("").toString()}`;
+  const cached = await redis.get(cacheKey);
+
+  if (cached) {
+    res.status(200).json(JSON.parse(cached));
+    return;
+  }
+
   try {
     const generateQR = await GenerateQR.find(query, { mascot: 1 });
     const sachinCount = generateQR.filter((fd) => fd.mascot === 0).length;
     const rohitCount = generateQR.filter((fd) => fd.mascot === 1).length;
     const dhoniCount = generateQR.filter((fd) => fd.mascot === 2).length;
 
-    res.status(200).json({
+    const response = {
       totalCount: generateQR.length,
       cricketer: {
         sachin: sachinCount,
         rohit: rohitCount,
         dhoni: dhoniCount,
       },
+    };
+
+    await redis.scan(0, "match", "mascotCount:*").then((keys) => {
+      for (const key of keys) {
+        if (key.length > 0) {
+          redis.del(key);
+        }
+      }
     });
+
+    await redis.setex(cacheKey, 60 * 60, JSON.stringify(response));
+
+    res.status(200).json(response);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -322,6 +345,21 @@ exports.getPersonCount = async (req, res) => {
     res.status(200).json(personCount ? personCount.counter : 0);
   } catch (err) {
     console.log(err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getFeedbackCount = async (req, res) => {
+  const busIds = req.body.selectedBuses || {};
+  const query = {};
+
+  if (busIds[0] !== "all") {
+    query.macAddress = { $in: busIds };
+  }
+  try {
+    const count = await Feedback.countDocuments(query);
+    res.status(200).json(count);
+  } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };

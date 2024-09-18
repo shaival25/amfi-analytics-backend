@@ -44,7 +44,7 @@ app.use("/api/hello", (req, res) => {
     res.status(500);
   }
 });
-app.use("/downloads", donwloadsRoutes);
+app.use("/downloads", downloadsRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api", roleRoutes);
 app.use("/api", permissionRoutes);
@@ -58,6 +58,14 @@ app.use("/api/bnyGeneral", bnyGeneralRoutes);
 // app.listen(() => console.log(`Server started on port ${config.port}`));
 const httpsServer = https.createServer(credentials, app);
 // Start server
-httpsServer.listen(config.port, () => {
-  console.log(`Server running on port ${config.port}`);
-});
+
+if (process.env.PROD === "test") {
+  console.log("Starting server in test mode...");
+  httpsServer.listen(config.port, () => {
+    console.log(`Server running on port ${config.port}`);
+  });
+} else {
+  app.listen(config.port, () => {
+    console.log(`Server running on port ${config.port}`);
+  });
+}

@@ -383,7 +383,7 @@ exports.getUserInteraction = async (req, res) => {
         dateFilter = { $gte: startOfDay };
         groupByInterval = {
           $dateToString: {
-            format: "%Y-%m-%d %H:00", // Format as "YYYY-MM-DD HH:00"
+            format: "%d-%m-%Y %H:00", // Format as "YYYY-MM-DD HH:00"
             date: "$created_at",
           },
         };
@@ -394,7 +394,7 @@ exports.getUserInteraction = async (req, res) => {
         dateFilter = { $gte: startOfWeek };
         groupByInterval = {
           $dateToString: {
-            format: "%Y-%m-%d", // Format as "YYYY-MM-DD"
+            format: "%d-%m-%Y", // Format as "YYYY-MM-DD"
             date: "$created_at",
           },
         };
@@ -405,7 +405,7 @@ exports.getUserInteraction = async (req, res) => {
         dateFilter = { $gte: startOfMonth };
         groupByInterval = {
           $dateToString: {
-            format: "%Y-%m-%d", // Format as "YYYY-MM-DD"
+            format: "%d-%m-%Y", // Format as "YYYY-MM-DD"
             date: "$created_at",
           },
         };
@@ -414,7 +414,7 @@ exports.getUserInteraction = async (req, res) => {
       case "all-time": // All time
         groupByInterval = {
           $dateToString: {
-            format: "%Y-%m-%d", // Format as "YYYY-MM-DD"
+            format: "%d-%m-%Y", // Format as "YYYY-MM-DD"
             date: "$created_at",
           },
         };
@@ -463,23 +463,28 @@ exports.getUserInteraction = async (req, res) => {
       // Project to include the formatted date for grouping
       {
         $project: {
+          busName: "$busDetails.busName",
           journeyDuration: 1,
           interval: groupByInterval,
         },
       },
-      // Group by the formatted interval
+      // Group by bus and the formatted interval
       {
         $group: {
-          _id: "$interval",
+          _id: {
+            busName: "$busName",
+            interval: "$interval",
+          },
           totalDuration: { $sum: "$journeyDuration" },
           totalInteractions: { $sum: 1 },
         },
       },
-      // Calculate average duration for each interval
+      // Calculate average duration for each bus in each interval
       {
         $project: {
           _id: 0,
-          interval: "$_id",
+          busName: "$_id.busName",
+          interval: "$_id.interval",
           avgDuration: {
             $cond: [
               { $gt: ["$totalInteractions", 0] },
@@ -489,22 +494,53 @@ exports.getUserInteraction = async (req, res) => {
           },
         },
       },
+      // Sort the results by interval
+      {
+        $sort: {
+          interval: 1,
+        },
+      },
     ]);
 
-    // Separate arrays for labels and durations
-    const labels = [];
-    const durations = [];
+    // Prepare the data for the response
+    const labelsSet = new Set();
+    const datasets = {};
 
+    // Populate datasets
     result.forEach((item) => {
-      labels.push(item.interval);
-      durations.push(item.avgDuration);
+      labelsSet.add(item.interval);
+
+      if (!datasets[item.busName]) {
+        datasets[item.busName] = [];
+      }
+
+      datasets[item.busName].push({
+        interval: item.interval,
+        avgDuration: item.avgDuration,
+      });
+    });
+
+    const labels = Array.from(labelsSet).sort(); // Sorted labels array
+    const datasetArray = Object.keys(datasets).map((busName) => {
+      const dataForBus = new Array(labels.length).fill(0);
+
+      // Populate the data array for each bus, ensuring alignment with labels
+      datasets[busName].forEach((item) => {
+        const index = labels.indexOf(item.interval);
+        dataForBus[index] = (item.avgDuration / 1000).toFixed(2);
+      });
+
+      return {
+        label: busName,
+        data: dataForBus,
+      };
     });
 
     res.status(200).json({
       success: true,
       data: {
         labels,
-        durations,
+        datasets: datasetArray,
       },
     });
   } catch (err) {
@@ -524,22 +560,22 @@ exports.getGoals = async (req, res) => {
     const goals = await UserAnalytics.find(query, { goalSelected: 1 });
 
     const dreamHome = goals.filter(
-      (gs) => gs.goalSelected === "Dream Home"
+      (gs) => gs.goalSelected?.toLowerCase() === "dream home"
     ).length;
     const dreamVacation = goals.filter(
-      (gs) => gs.goalSelected === "Dream Vacation"
+      (gs) => gs.goalSelected?.toLowerCase() === "dream vacation"
     ).length;
     const luxuryCar = goals.filter(
-      (gs) => gs.goalSelected === "Luxury Car"
+      (gs) => gs.goalSelected?.toLowerCase() === "luxury car"
     ).length;
     const education = goals.filter(
-      (gs) => gs.goalSelected === "Education"
+      (gs) => gs.goalSelected?.toLowerCase() === "education"
     ).length;
     const marriage = goals.filter(
-      (gs) => gs.goalSelected === "Marriage"
+      (gs) => gs.goalSelected?.toLowerCase() === "marriage"
     ).length;
     const retirement = goals.filter(
-      (gs) => gs.goalSelected === "Retirement"
+      (gs) => gs.goalSelected?.toLowerCase() === "retirement"
     ).length;
 
     const response = {
@@ -561,6 +597,104 @@ exports.getGoals = async (req, res) => {
     };
 
     res.status(200).json(response);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getFeedbackInsights = async (req, res) => {
+  const busIds = req.body.selectedBuses || {};
+  const query = {};
+
+  if (busIds[0] !== "all") {
+    query.macAddress = { $in: busIds };
+  }
+
+  try {
+    // Fetch all feedback
+    const feedback = await Feedback.find(query);
+
+    // Initialize counters for each response type per question
+    const question1Responses = { Poor: 0, Average: 0, Good: 0, Excellent: 0 };
+    const question2Responses = {
+      "Not Very Useful": 0,
+      Neutral: 0,
+      Useful: 0,
+      "Extremely Useful": 0,
+    };
+    const question3Responses = {
+      Unlikely: 0,
+      Neutral: 0,
+      Likely: 0,
+      "Very Likely": 0,
+    };
+
+    // Iterate over all feedback and increment response counts
+    feedback.forEach((fb) => {
+      fb.responses.forEach((response) => {
+        if (response.question === "How was your Overall Experience?") {
+          question1Responses[response.response] += 1;
+        } else if (
+          response.question === "Did you find the information provided useful?"
+        ) {
+          question2Responses[response.response] += 1;
+        } else if (
+          response.question ===
+          "How likely are you to recommend mutual funds to friends or family?"
+        ) {
+          question3Responses[response.response] += 1;
+        }
+      });
+    });
+
+    // Format the data for each question
+    const data = {
+      question1: {
+        labels: ["Poor", "Average", "Good", "Excellent"],
+        datasets: [
+          {
+            label: "How was your Overall Experience?",
+            data: [
+              question1Responses["Poor"],
+              question1Responses["Average"],
+              question1Responses["Good"],
+              question1Responses["Excellent"],
+            ],
+          },
+        ],
+      },
+      question2: {
+        labels: ["Not Very Useful", "Neutral", "Useful", "Extremely Useful"],
+        datasets: [
+          {
+            label: "Did you find the information provided useful?",
+            data: [
+              question2Responses["Not Very Useful"],
+              question2Responses["Neutral"],
+              question2Responses["Useful"],
+              question2Responses["Extremely Useful"],
+            ],
+          },
+        ],
+      },
+      question3: {
+        labels: ["Unlikely", "Neutral", "Likely", "Very Likely"],
+        datasets: [
+          {
+            label:
+              "How likely are you to recommend mutual funds to friends or family?",
+            data: [
+              question3Responses["Unlikely"],
+              question3Responses["Neutral"],
+              question3Responses["Likely"],
+              question3Responses["Very Likely"],
+            ],
+          },
+        ],
+      },
+    };
+
+    res.status(200).json(data);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

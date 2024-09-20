@@ -38,4 +38,17 @@ router.post(
   analyticsController.getFeedbackCount
 );
 
+router.post(
+  "/goals-selected",
+  authenticate,
+  checkRole(["analytics:read"]),
+  analyticsController.getGoals
+);
+
+router.post(
+  "/user-interactions",
+  authenticate,
+  checkRole(["analytics:read"]),
+  analyticsController.getUserInteraction
+);
 module.exports = router;

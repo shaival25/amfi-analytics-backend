@@ -6,6 +6,8 @@ const sipCalcSchema = new mongoose.Schema({
   goalAmount: { type: Number, required: true },
   investmentDuration: { type: Number, required: true }, // In years
   expectedROR: { type: Number, required: true }, // Expected rate of return
+  maturityAmount: { type: Number, required: true },
+  monthlySip: { type: Number, required: true },
   macAddress: {
     type: String,
     ref: "Bus",

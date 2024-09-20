@@ -13,7 +13,7 @@ exports.getBnyGeneral = async (req, res) => {
         image: `/api/bnyGeneral/view/${fd.image}/${fd.macAddress}`,
       };
     });
-    res.status(200).json(modifiedFaceDetections);
+    res.status(200).json(modifiedBnyGenerals);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

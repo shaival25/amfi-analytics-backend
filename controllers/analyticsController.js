@@ -3,6 +3,8 @@ const GenerateQR = require("../models/generateQR");
 const PersonCounter = require("../models/personCounter");
 const redis = require("../config/redisClient");
 const Feedback = require("../models/feedback");
+const UserAnalytics = require("../models/userAnalytics");
+const Bus = require("../models/bus");
 exports.getCountForLastHour = async (req, res) => {
   const busIds = req.body.selectedBuses || {};
   const endTime = new Date();
@@ -311,9 +313,9 @@ exports.getMascotCount = async (req, res) => {
     const response = {
       totalCount: generateQR.length,
       cricketer: {
-        sachin: sachinCount,
-        rohit: rohitCount,
-        dhoni: dhoniCount,
+        Sachin: sachinCount,
+        Rohit: rohitCount,
+        Dhoni: dhoniCount,
       },
     };
 
@@ -359,6 +361,206 @@ exports.getFeedbackCount = async (req, res) => {
   try {
     const count = await Feedback.countDocuments(query);
     res.status(200).json(count);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+exports.getUserInteraction = async (req, res) => {
+  const busIds = req.body.selectedBuses || [];
+  const option = req.body.option || "default"; // default, 1-week, 1-month, all-time
+
+  try {
+    let dateFilter = {};
+    let groupByInterval = {};
+    let dateFormat = {};
+
+    const now = new Date();
+
+    switch (option) {
+      case "default": // 1 Day, gap of 3 hours
+        const startOfDay = new Date(now.setHours(0, 0, 0, 0));
+        dateFilter = { $gte: startOfDay };
+        groupByInterval = {
+          $dateToString: {
+            format: "%Y-%m-%d %H:00", // Format as "YYYY-MM-DD HH:00"
+            date: "$created_at",
+          },
+        };
+        break;
+
+      case "1-week": // Last week, gap of 1 day
+        const startOfWeek = new Date(now.setDate(now.getDate() - 7));
+        dateFilter = { $gte: startOfWeek };
+        groupByInterval = {
+          $dateToString: {
+            format: "%Y-%m-%d", // Format as "YYYY-MM-DD"
+            date: "$created_at",
+          },
+        };
+        break;
+
+      case "1-month": // Last month, gap of 1 week
+        const startOfMonth = new Date(now.setMonth(now.getMonth() - 1));
+        dateFilter = { $gte: startOfMonth };
+        groupByInterval = {
+          $dateToString: {
+            format: "%Y-%m-%d", // Format as "YYYY-MM-DD"
+            date: "$created_at",
+          },
+        };
+        break;
+
+      case "all-time": // All time
+        groupByInterval = {
+          $dateToString: {
+            format: "%Y-%m-%d", // Format as "YYYY-MM-DD"
+            date: "$created_at",
+          },
+        };
+        break;
+
+      default:
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid option" });
+    }
+
+    // Get the BnyGeneral documents that match the selected buses' macAddresses
+    const busMatchQuery = {};
+    if (busIds[0] !== "all") {
+      busMatchQuery.macAddress = { $in: busIds };
+    }
+
+    // Aggregate the user analytics data with buses
+    const result = await UserAnalytics.aggregate([
+      {
+        $lookup: {
+          from: "bnygenerals",
+          localField: "userId",
+          foreignField: "_id",
+          as: "userDetails",
+        },
+      },
+      { $unwind: "$userDetails" },
+      {
+        $match: {
+          "userDetails.macAddress": busMatchQuery.macAddress || {
+            $exists: true,
+          },
+          ...(Object.keys(dateFilter).length && { created_at: dateFilter }),
+        },
+      },
+      {
+        $lookup: {
+          from: "buses",
+          localField: "userDetails.macAddress",
+          foreignField: "macAddress",
+          as: "busDetails",
+        },
+      },
+      { $unwind: "$busDetails" },
+      // Project to include the formatted date for grouping
+      {
+        $project: {
+          journeyDuration: 1,
+          interval: groupByInterval,
+        },
+      },
+      // Group by the formatted interval
+      {
+        $group: {
+          _id: "$interval",
+          totalDuration: { $sum: "$journeyDuration" },
+          totalInteractions: { $sum: 1 },
+        },
+      },
+      // Calculate average duration for each interval
+      {
+        $project: {
+          _id: 0,
+          interval: "$_id",
+          avgDuration: {
+            $cond: [
+              { $gt: ["$totalInteractions", 0] },
+              { $divide: ["$totalDuration", "$totalInteractions"] },
+              0,
+            ],
+          },
+        },
+      },
+    ]);
+
+    // Separate arrays for labels and durations
+    const labels = [];
+    const durations = [];
+
+    result.forEach((item) => {
+      labels.push(item.interval);
+      durations.push(item.avgDuration);
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        labels,
+        durations,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+exports.getGoals = async (req, res) => {
+  const busIds = req.body.selectedBuses || {};
+  const query = {};
+
+  if (busIds[0] !== "all") {
+    query.macAddress = { $in: busIds };
+  }
+
+  try {
+    const goals = await UserAnalytics.find(query, { goalSelected: 1 });
+
+    const dreamHome = goals.filter(
+      (gs) => gs.goalSelected === "Dream Home"
+    ).length;
+    const dreamVacation = goals.filter(
+      (gs) => gs.goalSelected === "Dream Vacation"
+    ).length;
+    const luxuryCar = goals.filter(
+      (gs) => gs.goalSelected === "Luxury Car"
+    ).length;
+    const education = goals.filter(
+      (gs) => gs.goalSelected === "Education"
+    ).length;
+    const marriage = goals.filter(
+      (gs) => gs.goalSelected === "Marriage"
+    ).length;
+    const retirement = goals.filter(
+      (gs) => gs.goalSelected === "Retirement"
+    ).length;
+
+    const response = {
+      totalCount:
+        dreamHome +
+        dreamVacation +
+        luxuryCar +
+        education +
+        marriage +
+        retirement,
+      goals: {
+        "Dream Home": dreamHome,
+        "Dream Vacation": dreamVacation,
+        "Luxury Car": luxuryCar,
+        Education: education,
+        Marriage: marriage,
+        Retirement: retirement,
+      },
+    };
+
+    res.status(200).json(response);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

@@ -1,25 +1,23 @@
 const express = require("express");
 const app = express();
 const cors = require("cors");
-
-const connectDB = require("./config/database");
-
+const fs = require("fs");
+const path = require("path");
+const https = require("https");
 const config = require("./config/config");
+const connectDB = require("./config/database");
 require("./config/redisClient");
 
+// Import routes
 const roleRoutes = require("./routes/roleRoutes");
 const userRoutes = require("./routes/userRoutes");
 const permissionRoutes = require("./routes/permissionRoutes");
 const analyticsRoutes = require("./routes/analyticsRoutes");
 const generateQrRoutes = require("./routes/generateQRRoutes");
-const donwloadsRoutes = require("./routes/downloadRoutes");
+const downloadsRoutes = require("./routes/downloadRoutes");
 const busRoutes = require("./routes/busRoutes");
 const bnyGeneralRoutes = require("./routes/bnyGeneralRoutes");
-
-const fs = require("fs");
-const path = require("path");
-
-const https = require("https");
+const heatMapRoutes = require("./routes/heatMapRoutes");
 
 // Connect to the database
 connectDB();
@@ -52,10 +50,10 @@ app.use("/api", generateQrRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/bus", busRoutes);
 app.use("/api/bnyGeneral", bnyGeneralRoutes);
+app.use("/api/heat-map", heatMapRoutes);
 
 // Create HTTPS server
 
-// app.listen(() => console.log(`Server started on port ${config.port}`));
 const httpsServer = https.createServer(credentials, app);
 // Start server
 

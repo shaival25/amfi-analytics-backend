@@ -3,14 +3,13 @@ const config = require("../config/config");
 
 const feedbackSchema = new mongoose.Schema({
   userId: { type: mongoose.Types.ObjectId, ref: "BnyGeneral", required: true },
-  question: {
-    type: String,
-    required: true,
-  },
-  response: {
-    type: String,
-    required: true,
-  },
+  responses: [
+    {
+      question: { type: String, required: true },
+      response: { type: String, required: true },
+      _id: false,
+    },
+  ],
   macAddress: {
     type: String,
     ref: "Bus",

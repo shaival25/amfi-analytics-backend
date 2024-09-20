@@ -47,15 +47,15 @@ router.post(
 
 router.post(
   "/user-interactions",
-  // authenticate,
-  // checkRole(["analytics:read"]),
+  authenticate,
+  checkRole(["analytics:read"]),
   analyticsController.getUserInteraction
 );
 
 router.post(
   "/feedback-insights",
-  // authenticate,
-  // checkRole(["analytics:read"]),
+  authenticate,
+  checkRole(["analytics:read"]),
   analyticsController.getFeedbackInsights
 );
 module.exports = router;

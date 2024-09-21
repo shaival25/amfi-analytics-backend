@@ -10,8 +10,11 @@ exports.syncFile = async (req, res) => {
             return res.status(400).json({ message: 'No file uploaded or folder path missing.' });
         }
 
+        // Decode the folder path
+        const decodedFolderPath = decodeURIComponent(folderPath);
+
         // Define the full path where the file will be saved
-        const fullPath = path.join(__dirname, '../uploads', folderPath || '', file.originalname); // Use empty string if folderPath is undefined
+        const fullPath = path.join(__dirname, '../uploads', decodedFolderPath || '', file.originalname);
 
         // Ensure directory exists asynchronously
         await fs.ensureDir(path.dirname(fullPath));
@@ -34,6 +37,7 @@ exports.syncFile = async (req, res) => {
         res.status(500).json({ message: 'Error syncing file to server.' });
     }
 };
+
 
 exports.deleteFile = async (req, res) => {
     try {

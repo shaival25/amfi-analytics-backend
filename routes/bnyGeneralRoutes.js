@@ -18,11 +18,6 @@ router.delete(
   bnyGeneralController.deleteBnyGeneral
 );
 
-router.get(
-  "/view/:filename/:macAddress",
-  authenticate,
-  checkRole(["bnyGeneral:read"]),
-  bnyGeneralController.getImages
-);
+router.get("/view/:filename/:macAddress", bnyGeneralController.getImages);
 
 module.exports = router;

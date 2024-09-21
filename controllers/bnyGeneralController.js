@@ -30,7 +30,8 @@ exports.getImages = async (req, res) => {
 
   try {
     const image = fs.readFileSync(filePath);
-    res.writeHead(200, { "Content-Type": "image/png" });
+    const contentType = filename.endsWith(".png") ? "image/png" : "image/jpeg";
+    res.writeHead(200, { "Content-Type": contentType });
     res.end(image);
   } catch (err) {
     if (err.code === "ENOENT") {

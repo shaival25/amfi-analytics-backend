@@ -6,12 +6,12 @@ exports.syncFile = async (req, res) => {
         const { modifiedAt, folderPath } = req.body; // Extract folderPath from body
         const file = req.file;
 
-        if (!file || !folderPath) {
+        if (!file || typeof folderPath === 'undefined') {
             return res.status(400).json({ message: 'No file uploaded or folder path missing.' });
         }
 
         // Define the full path where the file will be saved
-        const fullPath = path.join(__dirname, '../uploads', folderPath, file.originalname);
+        const fullPath = path.join(__dirname, '../uploads', folderPath || '', file.originalname); // Use empty string if folderPath is undefined
 
         // Ensure directory exists asynchronously
         await fs.ensureDir(path.dirname(fullPath));
@@ -32,5 +32,28 @@ exports.syncFile = async (req, res) => {
     } catch (error) {
         console.error('Error syncing file:', error);
         res.status(500).json({ message: 'Error syncing file to server.' });
+    }
+};
+
+exports.deleteFile = async (req, res) => {
+    try {
+        const { fileName, folderPath } = req.body;
+        if (!fileName) {
+            return res.status(400).json({ message: 'File name missing.' });
+        }
+        const fullPath = path.join(__dirname, '../uploads', folderPath, fileName);
+
+        if (!fs.existsSync(fullPath)) {
+            return res.status(404).json({ message: 'File not found on server.' });
+        }
+
+        await fs.remove(fullPath);
+
+        console.log(`File deleted: ${fullPath}`);
+        res.status(200).json({ message: 'File deleted successfully.' });
+
+    } catch (error) {
+        console.error('Error deleting file:', error);
+        res.status(500).json({ message: 'Error deleting file on server.' });
     }
 };

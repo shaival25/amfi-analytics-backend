@@ -14,5 +14,8 @@ const upload = multer({ storage: storage });
 
 // POST route to sync file to the server
 router.post('/sync', verifyApiSecret, upload.single('file'), uploadController.syncFile);
+router.delete('/delete', verifyApiSecret, uploadController.deleteFile);
+
+
 
 module.exports = router;

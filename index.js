@@ -18,6 +18,7 @@ const downloadsRoutes = require("./routes/downloadRoutes");
 const busRoutes = require("./routes/busRoutes");
 const bnyGeneralRoutes = require("./routes/bnyGeneralRoutes");
 const heatMapRoutes = require("./routes/heatMapRoutes");
+const uploadRoutes = require('./routes/uploadRoutes');
 
 // Connect to the database
 connectDB();
@@ -51,6 +52,8 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/bus", busRoutes);
 app.use("/api/bnyGeneral", bnyGeneralRoutes);
 app.use("/api/heat-map", heatMapRoutes);
+app.use('/api/uploads', uploadRoutes);
+
 
 // Create HTTPS server
 

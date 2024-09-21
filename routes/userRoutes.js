@@ -11,6 +11,7 @@ router.post(
   userController.register
 );
 router.post("/login", userController.login);
+router.get("/authenticate", authenticate, userController.authenticate);
 router.get(
   "/",
   authenticate,

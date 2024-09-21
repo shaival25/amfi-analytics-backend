@@ -151,3 +151,12 @@ exports.getUserById = async (req, res) => {
     res.status(500).json({ msg: err.message });
   }
 };
+
+exports.authenticate = async (req, res) => {
+  try {
+    res.status(200).json({ msg: "User authenticated" });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ msg: err.message });
+  }
+};

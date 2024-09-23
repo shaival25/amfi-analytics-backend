@@ -6,49 +6,55 @@ const busController = require("./busController");
 
 exports.getHeatMap = async (req, res) => {
   try {
-    const busIds = req.body.selectedBuses || [];
+    const {
+      selectedBuses = [],
+      selectedDate,
+      selectedTimeSlots = [],
+    } = req.body;
     const query = {};
-
-    if (busIds[0] !== "all") {
-      query.macAddress = { $in: busIds };
+    if (selectedTimeSlots.length === 0) {
+      return res.status(200).json({ heatMaps: [] });
     }
 
-    // Use aggregation to get the latest document for each macAddress
-    const heatMapData = await HeatMap.aggregate([
-      // Match documents based on the query
-      { $match: query },
-      // Sort by macAddress and createdAt (or the relevant timestamp field)
-      { $sort: { macAddress: 1, created_at: -1 } }, // Assuming 'createdAt' is the timestamp field
+    if (selectedBuses[0] !== "all") {
+      query.macAddress = { $in: selectedBuses };
+    }
 
-      // Group by macAddress and select the first document (latest)
-      {
-        $group: {
-          _id: "$macAddress",
-          latestEntry: { $first: "$$ROOT" },
-        },
-      },
-    ]);
+    // Convert selectedDate and selectedTimeSlots to a range of timestamps
+    if (selectedDate && selectedTimeSlots.length > 0) {
+      const timeRanges = selectedTimeSlots.map((time) => {
+        const start = new Date(`${selectedDate}T${time}`);
+        const end = new Date(start);
+        end.setHours(end.getHours() + 1); // Each slot is 1 hour long
+        return { start, end };
+      });
+
+      // Match created_at with one of the time ranges
+      query.$or = timeRanges.map((range) => ({
+        created_at: { $gte: range.start, $lt: range.end },
+      }));
+    }
+
+    // Fetch all matching documents without grouping by macAddress
+    const heatMapData = await HeatMap.find(query).sort({
+      macAddress: 1,
+      created_at: -1,
+    });
 
     if (!heatMapData || heatMapData.length === 0) {
-      return res.status(404).json({ message: "Heat map not found." });
+      return res.status(200).json({ heatMaps: [] });
     }
 
-    // Read and encode images for each entry, awaiting all promises
     const heatMapImages = await Promise.all(
-      heatMapData.map(async (group) => {
-        const data = group.latestEntry;
-
+      heatMapData.map(async (data) => {
         // Ensure createdAt is a valid Date object
         let formattedDate = "Invalid date";
         let formattedTime = "Invalid time";
         if (data.created_at) {
           try {
             const dateObj = new Date(data.created_at);
-            if (!isNaN(dateObj)) {
-              // Check if dateObj is a valid date
-              formattedDate = format(dateObj, "dd/MM/yyyy");
-              formattedTime = format(dateObj, "HH:mm:ss");
-            }
+            formattedDate = format(dateObj, "dd/MM/yyyy");
+            formattedTime = format(dateObj, "HH:mm:ss");
           } catch (error) {
             console.error("Date formatting error:", error);
           }
@@ -81,7 +87,8 @@ exports.getHeatMap = async (req, res) => {
         } else {
           return {
             busName: busName, // Use busName from getBusName
-            createdAt: formattedDate, // Add formatted date and time
+            date: formattedDate, // Add formatted date and time
+            time: formattedTime,
             image: null,
           };
         }

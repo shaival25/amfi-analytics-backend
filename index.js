@@ -34,8 +34,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
+// Serve the images from the public directory
+app.use("/images", express.static(path.join(__dirname, "email-images")));
 // Routes
-
 app.use("/api/hello", (req, res) => {
   try {
     res.status(200).json({ message: true });

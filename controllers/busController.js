@@ -18,7 +18,9 @@ exports.getBusName = (macAddress) => {
 
 exports.getAllBuses = async (req, res) => {
   try {
-    const Buses = await Bus.find({}, { macAddress: 1, busName: 1 });
+    const Buses = await Bus.find({}, { macAddress: 1, busName: 1 }).sort({
+      busName: 1,
+    });
     res.status(200).json(Buses);
   } catch (error) {
     console.error(error);

@@ -632,7 +632,7 @@ exports.getFeedbackInsights = async (req, res) => {
     // Iterate over all feedback and increment response counts
     feedback.forEach((fb) => {
       fb.responses.forEach((response) => {
-        if (response.question === "How was your Overall Experience?") {
+        if (response.question === "How was your Overall Experience") {
           question1Responses[response.response] += 1;
         } else if (
           response.question === "Did you find the information provided useful?"

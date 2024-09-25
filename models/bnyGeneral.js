@@ -8,7 +8,7 @@ const bnyGeneralSchema = new mongoose.Schema({
   dob: { type: String, required: true },
   city: { type: String, required: true },
   state: { type: String, required: true },
-  contactNumber: { type: Number, required: true, length: 10, unique: true },
+  contactNumber: { type: Number, required: true, length: 10 },
   image: { type: String, required: true },
   counter: { type: Number, required: true },
   macAddress: {

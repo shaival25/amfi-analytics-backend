@@ -570,7 +570,7 @@ exports.getGoals = async (req, res) => {
     const luxuryCar = goals.filter(
       (gs) => gs.goalSelected?.toLowerCase() === "luxury car"
     ).length;
-    const education = goals.filter(
+    const childFuture = goals.filter(
       (gs) => gs.goalSelected?.toLowerCase() === "child's future"
     ).length;
     const marriage = goals.filter(
@@ -585,14 +585,14 @@ exports.getGoals = async (req, res) => {
         dreamHome +
         dreamVacation +
         luxuryCar +
-        education +
+        childFuture +
         marriage +
         retirement,
       goals: {
         "Dream Home": dreamHome,
         "Dream Vacation": dreamVacation,
         "Luxury Car": luxuryCar,
-        Education: education,
+        "Child's Future": childFuture,
         Marriage: marriage,
         Retirement: retirement,
       },

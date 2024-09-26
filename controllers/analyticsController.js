@@ -571,7 +571,7 @@ exports.getGoals = async (req, res) => {
       (gs) => gs.goalSelected?.toLowerCase() === "luxury car"
     ).length;
     const education = goals.filter(
-      (gs) => gs.goalSelected?.toLowerCase() === "education"
+      (gs) => gs.goalSelected?.toLowerCase() === "child's future"
     ).length;
     const marriage = goals.filter(
       (gs) => gs.goalSelected?.toLowerCase() === "marriage"

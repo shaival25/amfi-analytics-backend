@@ -343,8 +343,10 @@ exports.getPersonCount = async (req, res) => {
     query.macAddress = { $in: busIds };
   }
   try {
-    const personCount = await PersonCounter.findOne(query);
-    res.status(200).json(personCount ? personCount.counter : 0);
+    const personCount = await BnyGeneral.countDocuments(query);
+    res.status(200).json(personCount);
+    // const personCount = await PersonCounter.findOne(query);
+    // res.status(200).json(personCount ? personCount.counter : 0);
   } catch (err) {
     console.log(err);
     res.status(500).json({ message: err.message });

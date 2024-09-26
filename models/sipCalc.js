@@ -2,12 +2,17 @@ const mongoose = require("mongoose");
 const config = require("../config/config");
 
 const sipCalcSchema = new mongoose.Schema({
-  userId: { type: mongoose.Types.ObjectId, ref: "BnyGeneral", required: true },
-  goalAmount: { type: Number, required: true },
+  userId: {
+    type: mongoose.Types.ObjectId,
+    ref: "BnyGeneral",
+    required: true,
+  },
   investmentDuration: { type: Number, required: true }, // In years
   expectedROR: { type: Number, required: true }, // Expected rate of return
   maturityAmount: { type: Number, required: true },
-  monthlySip: { type: Number, required: true },
+  monthlyInvestment: { type: Number, required: true },
+  totalInvestment: { type: Number, required: true },
+  goalSelected: { type: String, required: true },
   macAddress: {
     type: String,
     ref: "Bus",

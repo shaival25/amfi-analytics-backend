@@ -6,7 +6,6 @@ const path = require("path");
 const https = require("https");
 const config = require("./config/config");
 const connectDB = require("./config/database");
-const sendEmails = require("./scripts/sendEmails");
 require("./config/redisClient");
 
 // Import routes
@@ -70,6 +69,10 @@ if (process.env.PROD === "test") {
   app.listen(config.port, () => {
     console.log(`Server running on port ${config.port}`);
   });
-
-  sendEmails();
 }
+
+const { sendEmail } = require("./scripts/sendEmails");
+
+setInterval(async () => {
+  await sendEmail();
+}, 10000);

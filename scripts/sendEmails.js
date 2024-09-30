@@ -24,7 +24,7 @@ const formatIndianCurrency = (amount) => {
   }`;
 };
 
-const sendEmail = async () => {
+async function sendEmail() {
   try {
     // Find users in UserAnalytics where emailSent is false
     const analyticsUsers = await UserAnalytics.find({ emailSent: false });
@@ -103,7 +103,8 @@ const sendEmail = async () => {
   } catch (error) {
     console.error("Error sending emails: ", error);
   }
-};
+}
 
-// Call the function
-setInterval(sendEmail, 10000);
+module.exports = {
+  sendEmail,
+};

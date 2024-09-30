@@ -1,0 +1,118 @@
+<style>
+	@import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap');
+	body{  font-family: "Roboto", sans-serif;}p{color:#4b4b4b; font-size: 14px;}
+	td{background-color: transparent;}
+	.bg-white{background-color: #FFF !important;}
+	</style>
+	
+	<table width="100%" border="0" align="center" cellpadding="0" cellspacing="0" >
+	
+	<!-- START HEADER/BANNER -->
+			<tbody><tr>
+				<td align="center">
+					<table class="col-600" width="600" border="0" align="center" cellpadding="0" cellspacing="0" background="https://api.bharatniveshyatra.com/images/background.png"  style="padding: 40px;     border-radius: 5px;"  >
+						<tbody bgcolor="#FFF" class="bg-white" style="background-color: #fff !important; border-radius: 10px;" ><tr>
+							<td align="center" valign="top"  bgcolor="#FFFFFF" style="background-size:cover; background-position:top;height=400"  style="background: rgb(255 255 255 / 90%)">
+								<table class="col-600" width="100%" height="100%" border="0" align="center" cellpadding="0" cellspacing="0"  style="background: rgb(255 255 255 / 90%);">
+	
+									<!-- <tbody><tr>
+										<td height="40"></td>
+									</tr> -->
+									<tr>
+										<td align="center" style="line-height: 0px; padding:10px">
+											<img style="display:block; line-height:0px; font-size:0px; border:0px;" src="https://api.bharatniveshyatra.com/images/top-image.jpg" width="100%"  alt="top-image">
+										</td>
+									</tr>
+	
+									<!-- <tr>
+										<td align="center" style="font-family: 'Raleway', sans-serif; font-size:37px; color:#ffffff; line-height:24px; font-weight: bold; letter-spacing: 7px;">
+											EMAIL <span style="font-family: 'Raleway', sans-serif; font-size:37px; color:#ffffff; line-height:39px; font-weight: 300; letter-spacing: 7px;">TEMPLATE</span>
+										</td>
+									</tr>
+	 -->
+									<!-- <tr>
+										<td align="center" style="font-family: 'Lato', sans-serif; font-size:15px; color:#ffffff; line-height:24px; font-weight: 300;">
+											A creative email template for your email campaigns, promotions <br>and products across different email platforms.
+										</td>
+									</tr> -->
+									<tr>
+										<td style="padding: 10px;">
+											<p><strong>Dear {{name}},</strong></p>
+											<p>	Thank you for being a part of the "Bharat Nivesh Yatra," our journey to drive financial literacy across India. You’ve taken a significant step towards planning for your financial goals, and we’re here to support you every step of the way. </p>
+												
+											<p>	Attached is your customized plan, crafted based on your goal setting.</p>
+												 
+												<p>This plan is designed keeping your unique aspirations in mind, to help you make informed decisions about the investments for your future goals.
+												</p>
+												<h2 style="text-align: center; font-weight: 200; margin-bottom: 0;">To achieve your goal of {{goalSelected}}</h2>
+												
+										</td>
+									</tr>
+
+									<table cellspacing="0" border="0" width="100%" padding="10px" style="padding: 10px;" class="inner-table" >
+										<td width="65%" style="border: 1px solid #09876f; background-color:#32967e; border-radius: 5px 0 0 5px;">
+											<table width="100%"> 
+											<tr style="">
+											<td style="color:#FFFFFF; font-size: 14px; padding-left: 4px; border-bottom: 1px solid #74b8a7;">Goal Amount</td>
+											<td style="color: #FFFFFF; font-size: 12px; line-height: 30px; text-align: center; border-bottom: 1px solid #74b8a7;">Rs. {{goalAmount}}</td>
+											
+											</tr>
+											<tr>
+												<td style="color:#FFFFFF; font-size: 14px; padding-left: 4px; border-bottom: 1px solid #74b8a7;">Investment Duration (In Years)</td>
+												<td style="color: #FFFFFF; font-size: 12px; line-height: 30px; text-align: center; border-bottom: 1px solid #74b8a7;">{{investmentDuration}}</td>
+											
+											</tr>
+											<tr>
+												<td style="color:#FFFFFF; font-size: 14px; padding-left: 4px;">Expected Rate of Return % (p.a.)</td>
+												<td style="color: #FFFFFF; font-size: 12px; line-height: 30px; text-align: center;">{{expectedROR}}</td>
+											
+											</tr>
+											</table>
+											</td>
+											<td style="width: 100%; border-left: 1px solid #74b8a7;
+											background-color: #32967e; border-radius: 0 5px 5px 0;
+											float: left;">
+											  <table style="width:100%; padding: 5px 10px;">
+												<tr>
+												  <td style="font-size: 14px; color: #FFF; line-height: 24px; font-weight: 500; text-align: center;">Your Total Investment: <span style="display: block; text-align: center; color: #fff570;">₹{{totalInvestment}} </span></td>
+												</tr>
+												<tr>
+												  <td style="font-size: 14px; color: #FFF; line-height: 24px; font-weight: 500; text-align: center;">Monthly SIP Amount: <span style="display: block; text-align: center;color: #fff570;">₹{{monthlyInvestment}}</span></td>
+												</tr>
+											  </table>
+											</td>
+											
+									  </table>
+									
+									<tr  style="width:100%; background: rgb(255 255 255 / 90%);">
+										<td style="padding: 10px;">
+											<p><strong>To reach your goal, you will need to start an SIP of <u>₹{{monthlyInvestment}}</u> per month</strong></p>
+											<p>As you review your details, remember that financial planning is an ongoing process. We encourage you to stay invested, revisit your goals periodically, and adjust your strategy as needed.</p>
+												
+											<p>	Thank you once again for participating, and we look forward to seeing you continue on the road to financial success.
+											</p>
+												 
+												<p><strong>Visit <a href="http://www.mutualfundssahihai.com" target="_blank" style="color: 09876f; text-decoration: underline;">www.mutualfundssahihai.com</a> to explore and learn <br> more about Mutual Funds.</strong></p>
+												<p>Warm regards, <br>
+													Team Mutual Funds Sahi Hai.</p>
+										</td>
+									</tr>
+								</tr>
+								<!-- <tr  style="width:100%; background:rgb(255 255 255 / 90%);">
+									<td align="center" style="line-height: 0px; padding:10px">
+										<img style="display:block; line-height:0px; font-size:0px; border:0px;" src="https://api.bharatniveshyatra.com/images/mutual-logo.png" width="350"  alt="mutual-logo">
+									</td>
+								</tr> -->
+								<td padding="15px"  style="width:100%; background: rgb(255 255 255 / 90%); padding: 15px !important; ">
+									<p style="text-decoration: underline; padding: 0 10px;"><strong>DISCLAIMER :</strong></p>
+									<p style="font-size: 11px; padding: 0 10px;">The calculations and simulation are based on input/assumed rate of returns and should not be construed as a promise on minimum returns and safeguard of capital. AMFI or MFSH is not guaranteeing or promising or forecasting any return. Mutual Funds do not have a fixed rate of return, and it is not possible to predict the rate of return. Mutual Fund investments are subject to market risks, read all scheme related documents carefully.</p>
+								</td>
+							</tr>
+								</tbody></table>
+							</td>
+						</tr>
+					</tbody></table>
+				</td>
+			</tr>
+	<!-- END HEADER/BANNER -->
+					</tbody></table>

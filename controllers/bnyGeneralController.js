@@ -6,7 +6,9 @@ const BusController = require("./busController");
 
 exports.getBnyGeneral = async (req, res) => {
   try {
-    const bnyGenerals = await BnyGeneral.find({ deleted_at: null });
+    const bnyGenerals = await BnyGeneral.find({ deleted_at: null }).sort({
+      created_at: -1,
+    });
     const modifiedBnyGenerals = bnyGenerals.map((fd) => {
       return {
         ...fd._doc,

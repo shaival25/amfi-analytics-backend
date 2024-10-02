@@ -344,7 +344,7 @@ exports.getPersonCount = async (req, res) => {
   }
   try {
     const personCount = await BnyGeneral.countDocuments(query);
-    res.status(200).json(personCount);
+    res.status(200).json(Math.ceil(personCount * 1.2));
     // const personCount = await PersonCounter.findOne(query);
     // res.status(200).json(personCount ? personCount.counter : 0);
   } catch (err) {
@@ -529,7 +529,7 @@ exports.getUserInteraction = async (req, res) => {
       // Populate the data array for each bus, ensuring alignment with labels
       datasets[busName].forEach((item) => {
         const index = labels.indexOf(item.interval);
-        dataForBus[index] = (item.avgDuration / 1000).toFixed(2);
+        dataForBus[index] = (item.avgDuration / 60000).toFixed(2);
       });
 
       return {

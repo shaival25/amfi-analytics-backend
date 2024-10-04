@@ -9,13 +9,26 @@ exports.getBnyGeneral = async (req, res) => {
     const bnyGenerals = await BnyGeneral.find({ deleted_at: null }).sort({
       created_at: -1,
     });
-    const modifiedBnyGenerals = bnyGenerals.map((fd) => {
+    const modifiedBnyGenerals = bnyGenerals.map(async (fd) => {
+      const busName = await BusController.getBusName(fd.macAddress);
+      const createdDate = new Date(fd.created_at).toLocaleString("en-US", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
       return {
         ...fd._doc,
+        busName,
+        date: createdDate,
         image: `/api/bnyGeneral/view/${fd.image}/${fd.macAddress}`,
       };
     });
-    res.status(200).json(modifiedBnyGenerals);
+    const resolvedModifiedBnyGenerals = await Promise.all(modifiedBnyGenerals);
+    res.status(200).json(resolvedModifiedBnyGenerals);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

@@ -72,7 +72,7 @@ if (process.env.PROD === "test") {
 }
 
 const { sendEmail } = require("./scripts/sendEmails");
-
+sendEmail();
 setInterval(async () => {
   await sendEmail();
-}, 10000);
+}, 1000 * 60 * 5);

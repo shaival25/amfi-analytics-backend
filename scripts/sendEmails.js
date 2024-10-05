@@ -79,21 +79,25 @@ async function sendEmail() {
         .replace("{{goalSelected}}", goalSelected || "Your Goal");
 
       if (user && user.email) {
-        // Send email using Postmark
-        await client.sendEmail({
-          From: "info@bharatniveshyatra.com",
-          To: user.email,
-          Subject: "Your Personalized Plan from Bharat Nivesh Yatra awaits!",
-          HtmlBody: emailReplacedTemplate,
-          TextBody: emailReplacedTemplate,
-          MessageStream: "outbound",
-        });
+        try {
+          // Send email using Postmark
+          await client.sendEmail({
+            From: "info@bharatniveshyatra.com",
+            To: user.email,
+            Subject: "Your Personalized Plan from Bharat Nivesh Yatra awaits!",
+            HtmlBody: emailReplacedTemplate,
+            TextBody: emailReplacedTemplate,
+            MessageStream: "outbound",
+          });
 
-        // Update emailSent to true after sending the email
-        await UserAnalytics.findByIdAndUpdate(analyticsUser._id, {
-          emailSent: true,
-        });
-        console.log(`Email sent to: ${user.email}`);
+          // Update emailSent to true after sending the email
+          await UserAnalytics.findByIdAndUpdate(analyticsUser._id, {
+            emailSent: true,
+          });
+          console.log(`Email sent to: ${user.email}`);
+        } catch (emailError) {
+          console.error(`Failed to send email to ${user.email}:`, emailError);
+        }
       } else {
         console.log(
           `BnyGeneral not found or email missing for userId: ${analyticsUser.userId}`
@@ -101,7 +105,7 @@ async function sendEmail() {
       }
     }
   } catch (error) {
-    console.error("Error sending emails: ", error);
+    console.error("Error in the email sending process: ", error);
   }
 }
 

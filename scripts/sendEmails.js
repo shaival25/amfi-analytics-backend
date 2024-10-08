@@ -76,7 +76,7 @@ async function sendEmail() {
         )
         .replace("{{monthlyInvestment}}", monthlyInvestment)
         .replace("{{totalInvestment}}", formatIndianCurrency(totalInvestment))
-        .replace("{{expectedROR}}", expectedROR || "N/A")
+        .replace("{{expectedROR}}", expectedROR * 100 || "N/A")
         .replace("{{investmentDuration}}", investmentDuration || "N/A")
         .replace("{{goalAmount}}", formatIndianCurrency(maturityAmount))
         .replace("{{goalSelected}}", goalSelected || "Your Goal");

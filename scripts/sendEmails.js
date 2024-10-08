@@ -45,12 +45,11 @@ async function sendEmail() {
       }
 
       // Find the corresponding investment details from SipCalc using userId
-      const sipCalcData = await SipCalc.findOne(
-        {
-          userId: analyticsUser.userId,
-        },
-        { sort: { updated_at: -1 } }
-      );
+      const sipCalcData = await SipCalc.findOne({
+        userId: analyticsUser.userId,
+      })
+        .sort("-updated_at")
+        .limit(1);
 
       if (!sipCalcData) {
         console.log(`No SIP data found for userId: ${analyticsUser.userId}`);
@@ -77,7 +76,7 @@ async function sendEmail() {
         .replace("{{monthlyInvestment}}", monthlyInvestment)
         .replace("{{totalInvestment}}", formatIndianCurrency(totalInvestment))
         .replace("{{expectedROR}}", expectedROR * 100 || "N/A")
-        .replace("{{investmentDuration}}", investmentDuration || "N/A")
+        .replace("{{investmentDuration}}", investmentDuration / 12 || "N/A")
         .replace("{{goalAmount}}", formatIndianCurrency(maturityAmount))
         .replace("{{goalSelected}}", goalSelected || "Your Goal");
 

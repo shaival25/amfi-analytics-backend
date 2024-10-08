@@ -45,9 +45,12 @@ async function sendEmail() {
       }
 
       // Find the corresponding investment details from SipCalc using userId
-      const sipCalcData = await SipCalc.findOne({
-        userId: analyticsUser.userId,
-      });
+      const sipCalcData = await SipCalc.findOne(
+        {
+          userId: analyticsUser.userId,
+        },
+        { sort: { updated_at: -1 } }
+      );
 
       if (!sipCalcData) {
         console.log(`No SIP data found for userId: ${analyticsUser.userId}`);

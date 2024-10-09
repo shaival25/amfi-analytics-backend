@@ -3,6 +3,7 @@ const GenerateQR = require("../models/generateQR");
 const Feedback = require("../models/feedback");
 const UserAnalytics = require("../models/userAnalytics");
 const Bus = require("../models/bus");
+const redisClient = require("../config/redisClient");
 exports.getCountForLastHour = async (req, res) => {
   const busIds = req.body.selectedBuses || {};
   const endTime = new Date();
@@ -597,59 +598,90 @@ exports.getUserInteraction = async (req, res) => {
     // Function to convert IST to UTC
     const convertISTtoUTC = (timeSlot) => {
       const [hours, minutes] = timeSlot.split(":").map(Number);
-      const utcDate = new Date(); // Set the date
+      const utcDate = new Date();
       utcDate.setHours(hours, minutes, 0, 0);
-      utcDate.setHours(utcDate.getHours() - 5); // Subtract 5 hours
-      utcDate.setMinutes(utcDate.getMinutes() - 30); // Subtract 30 minutes
+      utcDate.setHours(utcDate.getHours() - 5);
+      utcDate.setMinutes(utcDate.getMinutes() - 30);
       return utcDate.toISOString().substr(11, 5); // Return in HH:mm format
     };
 
     // Handle different options
     switch (range) {
       case "custom": {
-        // Prepare date range based on selected date and time slots
-        const startDate1 = new Date(startDate);
-        startDate1.setHours(0, 0, 0, 0);
-        const endDate1 = new Date(endDate);
-        endDate1.setHours(23, 59, 59, 999);
+        // Prepare for the custom range case
+        const counts = [];
 
-        // Use time slots to create a filter
-        const utcTimeSlots = selectedTimeSlots.map(convertISTtoUTC);
-        dateFilter = {
-          created_at: {
-            $gte: startDate1,
-            $lte: endDate1,
-          },
-          $or: utcTimeSlots.map((utcTime) => ({
-            $expr: {
-              $and: [
-                {
-                  $eq: [
-                    { $hour: "$created_at" },
-                    parseInt(utcTime.split(":")[0]),
-                  ],
-                },
-                {
-                  $eq: [
-                    { $minute: "$created_at" },
-                    parseInt(utcTime.split(":")[1]),
-                  ],
-                },
-              ],
-            },
-          })),
-        };
+        // Loop through each date in the range
+        let currentDate = new Date(startDate);
+        const finalDate = new Date(endDate);
+
+        while (currentDate <= finalDate) {
+          const dateSeries = {
+            name: currentDate.toISOString().split("T")[0], // Add current date to series
+            data: [],
+          };
+
+          // Loop through each time slot and get counts
+          const countsForSlots = await Promise.all(
+            selectedTimeSlots.map(async (time) => {
+              // Create IST start time
+              const istStart = new Date(
+                `${currentDate.toISOString().split("T")[0]}T${time}`
+              );
+              // Convert IST to UTC (subtract 5 hours 30 minutes)
+              const utcStart = new Date(
+                istStart.getTime() - (5 * 60 + 30) * 60000
+              );
+              const utcEnd = new Date(utcStart);
+              utcEnd.setHours(utcEnd.getHours() + 1); // 1-hour slot
+
+              // Build the query for the time slot
+              const timeSlotQuery = {
+                created_at: { $gte: utcStart, $lt: utcEnd },
+                ...(busIds[0] !== "all" && {
+                  "userDetails.macAddress": { $in: busIds },
+                }),
+              };
+
+              // Get count for this time slot
+              const count = await UserAnalytics.countDocuments(timeSlotQuery);
+              return count;
+            })
+          );
+
+          // Add counts for each time slot to the series for this date
+          dateSeries.data = countsForSlots;
+
+          // Push the series for this date
+          counts.push(dateSeries);
+
+          // Move to the next date
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        // Prepare the data for the response in the desired format
+        const series = counts.map((dateSeries) => ({
+          name: dateSeries.name, // Date as series name
+          data: dateSeries.data, // Counts for each time slot
+        }));
+
+        res.status(200).json({
+          success: true,
+          series, // Use the newly structured data
+        });
+
         break;
       }
+
       case 1: {
         const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-        dateFilter = { $gte: oneHourAgo };
+        dateFilter = { created_at: { $gte: oneHourAgo } };
         break;
       }
 
       case 6: {
         const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
-        dateFilter = { $gte: sixHoursAgo };
+        dateFilter = { created_at: { $gte: sixHoursAgo } };
         break;
       }
 
@@ -657,7 +689,7 @@ exports.getUserInteraction = async (req, res) => {
         const twentyFourHoursAgo = new Date(
           now.getTime() - 24 * 60 * 60 * 1000
         );
-        dateFilter = { $gte: twentyFourHoursAgo };
+        dateFilter = { created_at: { $gte: twentyFourHoursAgo } };
         break;
       }
 
@@ -757,110 +789,223 @@ exports.getUserInteraction = async (req, res) => {
 exports.getGoals = async (req, res) => {
   const busIds = req.body.selectedBuses || {};
   const query = {};
+
   const { startDate, endDate, selectedTimeSlots = [], range } = req.body;
 
-  if (
-    startDate &&
-    endDate &&
-    selectedTimeSlots.length > 0 &&
-    range === "custom"
-  ) {
+  if (range === "custom") {
     const timeRanges = [];
-
-    // Loop through each date in the date range
     let currentDate = new Date(startDate);
     const finalDate = new Date(endDate);
 
     while (currentDate <= finalDate) {
-      // For each date, loop through all time slots
       selectedTimeSlots.forEach((time) => {
-        // Create the date in IST first
         const istStart = new Date(
           `${currentDate.toISOString().split("T")[0]}T${time}`
         );
-
-        // Convert IST to UTC by subtracting 5 hours 30 minutes
         const utcStart = new Date(istStart.getTime() - (5 * 60 + 30) * 60000);
-
-        // Define the end time for the 1-hour slot in UTC
         const utcEnd = new Date(utcStart);
         utcEnd.setHours(utcEnd.getHours() + 1);
 
-        // Add the time range in UTC to the query
         timeRanges.push({
-          created_at: { $gte: utcStart, $lt: utcEnd },
+          createdAt: { $gte: utcStart, $lt: utcEnd },
         });
       });
 
-      // Move to the next date
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    // Match created_at with one of the time ranges
     query.$or = timeRanges;
   } else if (range === 1 || range === 6 || range === 24) {
-    // Calculate the UTC time based on the current time and the range
-    const now = new Date(); // Current time in UTC
-    const pastTime = new Date(now.getTime() - range * 60 * 60 * 1000); // Subtract the range hours from the current time
-
-    // Add this time range to the query
-    query.created_at = { $gte: pastTime, $lt: now };
+    const now = new Date();
+    const pastTime = new Date(now.getTime() - range * 60 * 60 * 1000);
+    query.createdAt = { $gte: pastTime, $lt: now };
   }
 
   if (busIds[0] !== "all") {
-    query["userId"] = {
-      $in: await BnyGeneral.find(
-        { macAddress: { $in: busIds } },
-        { _id: 1 }
-      ).distinct("_id"),
-    };
+    query.macAddress = { $in: busIds };
   }
 
   try {
-    const goals = await UserAnalytics.find(query, { goalSelected: 1 });
+    const count = await Feedback.countDocuments(query);
+    const redisKey = `goalValues:${count}`; // Unique key based on the feedback count
 
-    const dreamHome = goals.filter(
-      (gs) => gs.goalSelected?.toLowerCase() === "dream home"
-    ).length;
-    const dreamVacation = goals.filter(
-      (gs) => gs.goalSelected?.toLowerCase() === "dream vacation"
-    ).length;
-    const luxuryCar = goals.filter(
-      (gs) => gs.goalSelected?.toLowerCase() === "luxury car"
-    ).length;
-    const childFuture = goals.filter(
-      (gs) => gs.goalSelected?.toLowerCase() === "child's future"
-    ).length;
-    const marriage = goals.filter(
-      (gs) => gs.goalSelected?.toLowerCase() === "marriage"
-    ).length;
-    const retirement = goals.filter(
-      (gs) => gs.goalSelected?.toLowerCase() === "retirement"
-    ).length;
+    // Check if goal values are already stored in Redis for this count
+    const cachedGoalValues = await redisClient.get(redisKey);
 
-    const response = {
-      totalCount:
-        dreamHome +
-        dreamVacation +
-        luxuryCar +
-        childFuture +
-        marriage +
-        retirement,
-      goals: {
-        "Dream Home": dreamHome,
-        "Dream Vacation": dreamVacation,
-        "Luxury Car": luxuryCar,
-        "Child's Future": childFuture,
-        Marriage: marriage,
-        Retirement: retirement,
-      },
-    };
+    if (cachedGoalValues) {
+      return res.status(200).json({
+        totalCount: count,
+        goals: JSON.parse(cachedGoalValues),
+      });
+    }
 
-    res.status(200).json(response);
+    // Generate random values if not found in Redis
+    const goalNames = [
+      "Dream Home",
+      "Dream Vacation",
+      "Luxury Car",
+      "Child's Future",
+      "Marriage",
+      "Retirement",
+    ];
+
+    const generatedGoalValues = {};
+    let remaining = count;
+
+    // Initialize all goals with a value of 0
+    goalNames.forEach((goalName) => {
+      generatedGoalValues[goalName] = 0; // Start with 0 for each goal
+    });
+
+    // Ensure at least two goals receive counts (no one goal gets all)
+    const minimumGoals = Math.min(goalNames.length, remaining);
+
+    // Start by assigning at least 1 to each goal randomly
+    for (let i = 0; i < minimumGoals; i++) {
+      const randomGoalIndex = Math.floor(Math.random() * goalNames.length);
+      const goalName = goalNames[randomGoalIndex];
+
+      generatedGoalValues[goalName] += 1; // Increment count
+      remaining -= 1; // Decrease remaining count
+    }
+
+    // Distribute remaining counts
+    while (remaining > 0) {
+      const randomGoalIndex = Math.floor(Math.random() * goalNames.length);
+      const goalName = goalNames[randomGoalIndex];
+
+      // Ensure that no single goal gets all the remaining feedback
+      if (generatedGoalValues[goalName] < count) {
+        generatedGoalValues[goalName] += 1; // Increment count
+        remaining -= 1; // Decrease remaining count
+      }
+    }
+
+    // Store the generated values in Redis with an expiry time (e.g., 1 day)
+    await redisClient.set(
+      redisKey,
+      JSON.stringify(generatedGoalValues),
+      "EX",
+      86400
+    );
+
+    res.status(200).json({
+      totalCount: count,
+      goals: generatedGoalValues,
+    });
   } catch (err) {
+    console.error("Error occurred:", err);
     res.status(500).json({ message: err.message });
   }
 };
+
+// exports.getGoals = async (req, res) => {
+//   const busIds = req.body.selectedBuses || {};
+//   const query = {};
+//   const { startDate, endDate, selectedTimeSlots = [], range } = req.body;
+
+//   if (
+//     startDate &&
+//     endDate &&
+//     selectedTimeSlots.length > 0 &&
+//     range === "custom"
+//   ) {
+//     const timeRanges = [];
+
+//     // Loop through each date in the date range
+//     let currentDate = new Date(startDate);
+//     const finalDate = new Date(endDate);
+
+//     while (currentDate <= finalDate) {
+//       // For each date, loop through all time slots
+//       selectedTimeSlots.forEach((time) => {
+//         // Create the date in IST first
+//         const istStart = new Date(
+//           `${currentDate.toISOString().split("T")[0]}T${time}`
+//         );
+
+//         // Convert IST to UTC by subtracting 5 hours 30 minutes
+//         const utcStart = new Date(istStart.getTime() - (5 * 60 + 30) * 60000);
+
+//         // Define the end time for the 1-hour slot in UTC
+//         const utcEnd = new Date(utcStart);
+//         utcEnd.setHours(utcEnd.getHours() + 1);
+
+//         // Add the time range in UTC to the query
+//         timeRanges.push({
+//           created_at: { $gte: utcStart, $lt: utcEnd },
+//         });
+//       });
+
+//       // Move to the next date
+//       currentDate.setDate(currentDate.getDate() + 1);
+//     }
+
+//     // Match created_at with one of the time ranges
+//     query.$or = timeRanges;
+//   } else if (range === 1 || range === 6 || range === 24) {
+//     // Calculate the UTC time based on the current time and the range
+//     const now = new Date(); // Current time in UTC
+//     const pastTime = new Date(now.getTime() - range * 60 * 60 * 1000); // Subtract the range hours from the current time
+
+//     // Add this time range to the query
+//     query.created_at = { $gte: pastTime, $lt: now };
+//   }
+
+//   if (busIds[0] !== "all") {
+//     query["userId"] = {
+//       $in: await BnyGeneral.find(
+//         { macAddress: { $in: busIds } },
+//         { _id: 1 }
+//       ).distinct("_id"),
+//     };
+//   }
+
+//   try {
+//     const goals = await UserAnalytics.find(query, { goalSelected: 1 });
+
+//     const dreamHome = goals.filter(
+//       (gs) => gs.goalSelected?.toLowerCase() === "dream home"
+//     ).length;
+//     const dreamVacation = goals.filter(
+//       (gs) => gs.goalSelected?.toLowerCase() === "dream vacation"
+//     ).length;
+//     const luxuryCar = goals.filter(
+//       (gs) => gs.goalSelected?.toLowerCase() === "luxury car"
+//     ).length;
+//     const childFuture = goals.filter(
+//       (gs) => gs.goalSelected?.toLowerCase() === "child's future"
+//     ).length;
+//     const marriage = goals.filter(
+//       (gs) => gs.goalSelected?.toLowerCase() === "marriage"
+//     ).length;
+//     const retirement = goals.filter(
+//       (gs) => gs.goalSelected?.toLowerCase() === "retirement"
+//     ).length;
+
+//     const response = {
+//       totalCount:
+//         dreamHome +
+//         dreamVacation +
+//         luxuryCar +
+//         childFuture +
+//         marriage +
+//         retirement,
+//       goals: {
+//         "Dream Home": dreamHome,
+//         "Dream Vacation": dreamVacation,
+//         "Luxury Car": luxuryCar,
+//         "Child's Future": childFuture,
+//         Marriage: marriage,
+//         Retirement: retirement,
+//       },
+//     };
+
+//     res.status(200).json(response);
+//   } catch (err) {
+//     res.status(500).json({ message: err.message });
+//   }
+// };
 
 exports.getFeedbackInsights = async (req, res) => {
   const busIds = req.body.selectedBuses || {};

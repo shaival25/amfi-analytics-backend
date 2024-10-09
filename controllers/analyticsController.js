@@ -1,7 +1,5 @@
 const BnyGeneral = require("../models/bnyGeneral");
 const GenerateQR = require("../models/generateQR");
-const PersonCounter = require("../models/personCounter");
-const redis = require("../config/redisClient");
 const Feedback = require("../models/feedback");
 const UserAnalytics = require("../models/userAnalytics");
 const Bus = require("../models/bus");
@@ -577,62 +575,84 @@ exports.getFeedbackCount = async (req, res) => {
 
 exports.getUserInteraction = async (req, res) => {
   const busIds = req.body.selectedBuses || [];
-  const option = req.body.option || "default"; // default, 1-week, 1-month, all-time
+
+  const { startDate, endDate, selectedTimeSlots = [], range } = req.body;
 
   try {
     let dateFilter = {};
-    let groupByInterval = {};
-    let dateFormat = {};
-
     const now = new Date();
 
-    switch (option) {
-      case "default": // 1 Day, gap of 3 hours
-        const startOfDay = new Date(now.setHours(0, 0, 0, 0));
-        dateFilter = { $gte: startOfDay };
-        groupByInterval = {
-          $dateToString: {
-            format: "%d-%m-%Y %H:00", // Format as "YYYY-MM-DD HH:00"
-            date: "$created_at",
-          },
-        };
-        break;
+    // Function to convert IST to UTC
+    const convertISTtoUTC = (timeSlot) => {
+      const [hours, minutes] = timeSlot.split(":").map(Number);
+      const utcDate = new Date(date); // Set the date
+      utcDate.setHours(hours, minutes, 0, 0);
+      utcDate.setHours(utcDate.getHours() - 5); // Subtract 5 hours
+      utcDate.setMinutes(utcDate.getMinutes() - 30); // Subtract 30 minutes
+      return utcDate.toISOString().substr(11, 5); // Return in HH:mm format
+    };
 
-      case "1-week": // Last week, gap of 1 day
-        const startOfWeek = new Date(now.setDate(now.getDate() - 7));
-        dateFilter = { $gte: startOfWeek };
-        groupByInterval = {
-          $dateToString: {
-            format: "%d-%m-%Y", // Format as "YYYY-MM-DD"
-            date: "$created_at",
-          },
-        };
-        break;
+    // Handle different options
+    switch (range) {
+      case "custom": {
+        // Prepare date range based on selected date and time slots
+        const startDate1 = new Date(startDate);
+        startDate1.setHours(0, 0, 0, 0);
+        const endDate1 = new Date(endDate);
+        endDate1.setHours(23, 59, 59, 999);
 
-      case "1-month": // Last month, gap of 1 week
-        const startOfMonth = new Date(now.setMonth(now.getMonth() - 1));
-        dateFilter = { $gte: startOfMonth };
-        groupByInterval = {
-          $dateToString: {
-            format: "%d-%m-%Y", // Format as "YYYY-MM-DD"
-            date: "$created_at",
+        // Use time slots to create a filter
+        const utcTimeSlots = selectedTimeSlots.map(convertISTtoUTC);
+        dateFilter = {
+          created_at: {
+            $gte: startDate1,
+            $lte: endDate1,
           },
+          $or: utcTimeSlots.map((utcTime) => ({
+            $expr: {
+              $and: [
+                {
+                  $eq: [
+                    { $hour: "$created_at" },
+                    parseInt(utcTime.split(":")[0]),
+                  ],
+                },
+                {
+                  $eq: [
+                    { $minute: "$created_at" },
+                    parseInt(utcTime.split(":")[1]),
+                  ],
+                },
+              ],
+            },
+          })),
         };
         break;
+      }
+      case 1: {
+        const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+        dateFilter = { $gte: oneHourAgo };
+        break;
+      }
 
-      case "all-time": // All time
-        groupByInterval = {
-          $dateToString: {
-            format: "%d-%m-%Y", // Format as "YYYY-MM-DD"
-            date: "$created_at",
-          },
-        };
+      case 6: {
+        const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
+        dateFilter = { $gte: sixHoursAgo };
         break;
+      }
+
+      case 24: {
+        const twentyFourHoursAgo = new Date(
+          now.getTime() - 24 * 60 * 60 * 1000
+        );
+        dateFilter = { $gte: twentyFourHoursAgo };
+        break;
+      }
 
       default:
         return res
           .status(400)
-          .json({ success: false, message: "Invalid option" });
+          .json({ success: false, message: "Invalid range" });
     }
 
     // Get the BnyGeneral documents that match the selected buses' macAddresses
@@ -669,31 +689,23 @@ exports.getUserInteraction = async (req, res) => {
         },
       },
       { $unwind: "$busDetails" },
-      // Project to include the formatted date for grouping
       {
         $project: {
           busName: "$busDetails.busName",
           journeyDuration: 1,
-          interval: groupByInterval,
         },
       },
-      // Group by bus and the formatted interval
       {
         $group: {
-          _id: {
-            busName: "$busName",
-            interval: "$interval",
-          },
+          _id: "$busName",
           totalDuration: { $sum: "$journeyDuration" },
           totalInteractions: { $sum: 1 },
         },
       },
-      // Calculate average duration for each bus in each interval
       {
         $project: {
           _id: 0,
-          busName: "$_id.busName",
-          interval: "$_id.interval",
+          busName: "$_id",
           avgDuration: {
             $cond: [
               { $gt: ["$totalInteractions", 0] },
@@ -703,54 +715,36 @@ exports.getUserInteraction = async (req, res) => {
           },
         },
       },
-      // Sort the results by interval
       {
         $sort: {
-          interval: 1,
+          busName: 1,
         },
       },
     ]);
 
     // Prepare the data for the response
-    const labelsSet = new Set();
+    const labels = [];
     const datasets = {};
 
-    // Populate datasets
     result.forEach((item) => {
-      labelsSet.add(item.interval);
-
       if (!datasets[item.busName]) {
         datasets[item.busName] = [];
       }
-
-      datasets[item.busName].push({
-        interval: item.interval,
-        avgDuration: item.avgDuration,
-      });
+      datasets[item.busName].push(item.avgDuration / 60000); // Convert from milliseconds to minutes
+      labels.push(item.busName);
     });
 
-    const labels = Array.from(labelsSet).sort(); // Sorted labels array
-    const datasetArray = Object.keys(datasets).map((busName) => {
-      const dataForBus = new Array(labels.length).fill(0);
-
-      // Populate the data array for each bus, ensuring alignment with labels
-      datasets[busName].forEach((item) => {
-        const index = labels.indexOf(item.interval);
-        dataForBus[index] = (item.avgDuration / 60000).toFixed(2);
-      });
-
-      return {
+    const responseData = {
+      labels: [...new Set(labels)], // Unique labels
+      datasets: Object.keys(datasets).map((busName) => ({
         label: busName,
-        data: dataForBus,
-      };
-    });
+        data: datasets[busName],
+      })),
+    };
 
     res.status(200).json({
       success: true,
-      data: {
-        labels,
-        datasets: datasetArray,
-      },
+      data: responseData,
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -804,7 +798,12 @@ exports.getGoals = async (req, res) => {
   }
 
   if (busIds[0] !== "all") {
-    query.macAddress = { $in: busIds };
+    query["userId"] = {
+      $in: await BnyGeneral.find(
+        { macAddress: { $in: busIds } },
+        { _id: 1 }
+      ).distinct("_id"),
+    };
   }
 
   try {

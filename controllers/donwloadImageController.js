@@ -8,6 +8,7 @@ const UserAnalytics = require("../models/userAnalytics");
 const Sipcalcs = require("../models/sipCalc");
 const Feedbacks = require("../models/feedback");
 const BnyGeneral = require("../models/bnyGeneral");
+const redis = require("../config/redisClient");
 
 exports.downloadImages = async (req, res) => {
   const { filename } = req.params;
@@ -70,7 +71,7 @@ exports.getUserData = async (req, res) => {
             ? userAnalytics.goalSelected
             : "N/A",
         goalAmount: sipCalcs ? sipCalcs.maturityAmount : "N/A",
-        investmentDuration: sipCalcs ? sipCalcs.investmentDuration : "N/A",
+        investmentDuration: sipCalcs ? sipCalcs.investmentDuration / 12 : "N/A",
         monthlyInvestment: sipCalcs ? sipCalcs.monthlyInvestment : "N/A",
         feedbacks: feedbacks ? "Y" : "N",
         emailSent:

@@ -386,6 +386,13 @@ exports.getFaceDetectionCount = async (req, res) => {
 
     // Match created_at with one of the time ranges
     query.$or = timeRanges;
+  } else if (range === 1 || range === 6 || range === 24) {
+    // Calculate the UTC time based on the current time and the range
+    const now = new Date(); // Current time in UTC
+    const pastTime = new Date(now.getTime() - range * 60 * 60 * 1000); // Subtract the range hours from the current time
+
+    // Add this time range to the query
+    query.created_at = { $gte: pastTime, $lt: now };
   }
 
   try {
@@ -436,6 +443,13 @@ exports.getMascotCount = async (req, res) => {
 
     // Match created_at with one of the time ranges
     query.$or = timeRanges;
+  } else if (range === 1 || range === 6 || range === 24) {
+    // Calculate the UTC time based on the current time and the range
+    const now = new Date(); // Current time in UTC
+    const pastTime = new Date(now.getTime() - range * 60 * 60 * 1000); // Subtract the range hours from the current time
+
+    // Add this time range to the query
+    query.created_at = { $gte: pastTime, $lt: now };
   }
 
   try {
@@ -500,6 +514,13 @@ exports.getPersonCount = async (req, res) => {
 
     // Match created_at with one of the time ranges
     query.$or = timeRanges;
+  } else if (range === 1 || range === 6 || range === 24) {
+    // Calculate the UTC time based on the current time and the range
+    const now = new Date(); // Current time in UTC
+    const pastTime = new Date(now.getTime() - range * 60 * 60 * 1000); // Subtract the range hours from the current time
+
+    // Add this time range to the query
+    query.created_at = { $gte: pastTime, $lt: now };
   }
 
   if (busIds[0] !== "all") {
@@ -521,50 +542,42 @@ exports.getFeedbackCount = async (req, res) => {
 
   const { startDate, endDate, selectedTimeSlots = [], range } = req.body;
 
-  if (
-    startDate &&
-    endDate &&
-    selectedTimeSlots.length > 0 &&
-    range === "custom"
-  ) {
+  if (range === "custom") {
     const timeRanges = [];
-
-    // Loop through each date in the date range
     let currentDate = new Date(startDate);
     const finalDate = new Date(endDate);
 
     while (currentDate <= finalDate) {
-      // For each date, loop through all time slots
       selectedTimeSlots.forEach((time) => {
-        // Create the date in IST first
         const istStart = new Date(
           `${currentDate.toISOString().split("T")[0]}T${time}`
         );
-
-        // Convert IST to UTC by subtracting 5 hours 30 minutes
         const utcStart = new Date(istStart.getTime() - (5 * 60 + 30) * 60000);
-
-        // Define the end time for the 1-hour slot in UTC
         const utcEnd = new Date(utcStart);
         utcEnd.setHours(utcEnd.getHours() + 1);
 
-        // Add the time range in UTC to the query
         timeRanges.push({
           createdAt: { $gte: utcStart, $lt: utcEnd },
         });
       });
 
-      // Move to the next date
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    // Match created_at with one of the time ranges
     query.$or = timeRanges;
+  } else if (range === 1 || range === 6 || range === 24) {
+    // Calculate the UTC time based on the current time and the range
+    const now = new Date(); // Current time in UTC
+    const pastTime = new Date(now.getTime() - range * 60 * 60 * 1000); // Subtract the range hours from the current time
+
+    // Add this time range to the query
+    query.createdAt = { $gte: pastTime, $lt: now };
   }
 
   if (busIds[0] !== "all") {
     query.macAddress = { $in: busIds };
   }
+
   try {
     const count = await Feedback.countDocuments(query);
     res.status(200).json(count);
@@ -584,7 +597,7 @@ exports.getUserInteraction = async (req, res) => {
     // Function to convert IST to UTC
     const convertISTtoUTC = (timeSlot) => {
       const [hours, minutes] = timeSlot.split(":").map(Number);
-      const utcDate = new Date(date); // Set the date
+      const utcDate = new Date(); // Set the date
       utcDate.setHours(hours, minutes, 0, 0);
       utcDate.setHours(utcDate.getHours() - 5); // Subtract 5 hours
       utcDate.setMinutes(utcDate.getMinutes() - 30); // Subtract 30 minutes
@@ -785,6 +798,13 @@ exports.getGoals = async (req, res) => {
 
     // Match created_at with one of the time ranges
     query.$or = timeRanges;
+  } else if (range === 1 || range === 6 || range === 24) {
+    // Calculate the UTC time based on the current time and the range
+    const now = new Date(); // Current time in UTC
+    const pastTime = new Date(now.getTime() - range * 60 * 60 * 1000); // Subtract the range hours from the current time
+
+    // Add this time range to the query
+    query.created_at = { $gte: pastTime, $lt: now };
   }
 
   if (busIds[0] !== "all") {
@@ -887,6 +907,13 @@ exports.getFeedbackInsights = async (req, res) => {
 
     // Match created_at with one of the time ranges
     query.$or = timeRanges;
+  } else if (range === 1 || range === 6 || range === 24) {
+    // Calculate the UTC time based on the current time and the range
+    const now = new Date(); // Current time in UTC
+    const pastTime = new Date(now.getTime() - range * 60 * 60 * 1000); // Subtract the range hours from the current time
+
+    // Add this time range to the query
+    query.createdAt = { $gte: pastTime, $lt: now };
   }
 
   if (busIds[0] !== "all") {

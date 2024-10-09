@@ -255,6 +255,72 @@ exports.getCountForLastYear = async (req, res) => {
   res.json({ labels, counts });
 };
 
+exports.getCustomTimeSlotCounts = async (req, res) => {
+  const busIds = req.body.selectedBuses || {};
+  const { startDate, endDate, selectedTimeSlots = [] } = req.body;
+
+  if (!startDate || !endDate || selectedTimeSlots.length === 0) {
+    return res
+      .status(200)
+      .json({ message: "Please provide valid date range and time slots." });
+  }
+
+  const query = {};
+  if (busIds[0] !== "all") {
+    query.macAddress = { $in: busIds };
+  }
+
+  const labels = selectedTimeSlots; // Time slots will be used as labels for the spine chart
+
+  const counts = []; // Array to hold data for each day in the range
+
+  // Loop through each date in the range
+  let currentDate = new Date(startDate);
+  const finalDate = new Date(endDate);
+
+  while (currentDate <= finalDate) {
+    const dateSeries = {
+      name: currentDate.toISOString().split("T")[0], // Add the current date to the series
+      data: [],
+    };
+
+    // Loop through each time slot and get counts
+    const countsForSlots = await Promise.all(
+      selectedTimeSlots.map(async (time) => {
+        // Create IST start time
+        const istStart = new Date(
+          `${currentDate.toISOString().split("T")[0]}T${time}`
+        );
+        // Convert IST to UTC (subtract 5 hours 30 minutes)
+        const utcStart = new Date(istStart.getTime() - (5 * 60 + 30) * 60000);
+        const utcEnd = new Date(utcStart);
+        utcEnd.setHours(utcEnd.getHours() + 1); // 1-hour slot
+
+        // Build query for the time slot
+        const timeSlotQuery = {
+          ...query,
+          created_at: { $gte: utcStart, $lt: utcEnd },
+        };
+
+        // Get count for this time slot
+        const count = await BnyGeneral.countDocuments(timeSlotQuery);
+        return count;
+      })
+    );
+
+    // Add counts for each time slot to the series for this date
+    dateSeries.data = countsForSlots;
+
+    // Push the series for this date
+    counts.push(dateSeries);
+
+    // Move to the next date
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  res.json({ labels, counts });
+};
+
 exports.getCountByRange = async (req, res) => {
   switch (req.params.range) {
     case "1":
@@ -267,6 +333,8 @@ exports.getCountByRange = async (req, res) => {
       return exports.getCountForLastMonth(req, res);
     case "8760":
       return exports.getCountForLastYear(req, res);
+    case "custom":
+      return exports.getCustomTimeSlotCounts(req, res);
     default:
       return exports.getCountForLastHour(req, res);
   }
@@ -275,10 +343,53 @@ exports.getCountByRange = async (req, res) => {
 exports.getFaceDetectionCount = async (req, res) => {
   const busIds = req.body.selectedBuses || {};
   const query = {};
+  const { startDate, endDate, selectedTimeSlots = [], range } = req.body;
 
   if (busIds[0] !== "all") {
     query.macAddress = { $in: busIds };
   }
+
+  if (
+    startDate &&
+    endDate &&
+    selectedTimeSlots.length > 0 &&
+    range === "custom"
+  ) {
+    const timeRanges = [];
+
+    // Loop through each date in the date range
+    let currentDate = new Date(startDate);
+    const finalDate = new Date(endDate);
+
+    while (currentDate <= finalDate) {
+      // For each date, loop through all time slots
+      selectedTimeSlots.forEach((time) => {
+        // Create the date in IST first
+        const istStart = new Date(
+          `${currentDate.toISOString().split("T")[0]}T${time}`
+        );
+
+        // Convert IST to UTC by subtracting 5 hours 30 minutes
+        const utcStart = new Date(istStart.getTime() - (5 * 60 + 30) * 60000);
+
+        // Define the end time for the 1-hour slot in UTC
+        const utcEnd = new Date(utcStart);
+        utcEnd.setHours(utcEnd.getHours() + 1);
+
+        // Add the time range in UTC to the query
+        timeRanges.push({
+          created_at: { $gte: utcStart, $lt: utcEnd },
+        });
+      });
+
+      // Move to the next date
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Match created_at with one of the time ranges
+    query.$or = timeRanges;
+  }
+
   try {
     const count = await BnyGeneral.countDocuments(query);
     res.status(200).json(count);
@@ -288,20 +399,45 @@ exports.getFaceDetectionCount = async (req, res) => {
 };
 
 exports.getMascotCount = async (req, res) => {
-  const busIds = req.body.selectedBuses || {};
-
   const query = {};
+  const { startDate, endDate, selectedTimeSlots = [], range } = req.body;
 
-  if (busIds[0] !== "all") {
-    query.macAddress = { $in: busIds };
-  }
+  if (
+    (startDate && endDate && selectedTimeSlots.length > 0, range === "custom")
+  ) {
+    const timeRanges = [];
 
-  const cacheKey = `mascotCount:${busIds.join("").toString()}`;
-  const cached = await redis.get(cacheKey);
+    // Loop through each date in the date range
+    let currentDate = new Date(startDate);
+    const finalDate = new Date(endDate);
 
-  if (cached) {
-    res.status(200).json(JSON.parse(cached));
-    return;
+    while (currentDate <= finalDate) {
+      // For each date, loop through all time slots
+      selectedTimeSlots.forEach((time) => {
+        // Create the date in IST first
+        const istStart = new Date(
+          `${currentDate.toISOString().split("T")[0]}T${time}`
+        );
+
+        // Convert IST to UTC by subtracting 5 hours 30 minutes
+        const utcStart = new Date(istStart.getTime() - (5 * 60 + 30) * 60000);
+
+        // Define the end time for the 1-hour slot in UTC
+        const utcEnd = new Date(utcStart);
+        utcEnd.setHours(utcEnd.getHours() + 1);
+
+        // Add the time range in UTC to the query
+        timeRanges.push({
+          created_at: { $gte: utcStart, $lt: utcEnd },
+        });
+      });
+
+      // Move to the next date
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Match created_at with one of the time ranges
+    query.$or = timeRanges;
   }
 
   try {
@@ -319,16 +455,6 @@ exports.getMascotCount = async (req, res) => {
       },
     };
 
-    await redis.scan(0, "match", "mascotCount:*").then((keys) => {
-      for (const key of keys) {
-        if (key.length > 0) {
-          redis.del(key);
-        }
-      }
-    });
-
-    await redis.setex(cacheKey, 60 * 60, JSON.stringify(response));
-
     res.status(200).json(response);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -338,17 +464,55 @@ exports.getMascotCount = async (req, res) => {
 exports.getPersonCount = async (req, res) => {
   const busIds = req.body.selectedBuses || {};
   const query = {};
+  const { startDate, endDate, selectedTimeSlots = [], range } = req.body;
+
+  if (
+    (startDate && endDate && selectedTimeSlots.length > 0, range === "custom")
+  ) {
+    const timeRanges = [];
+
+    // Loop through each date in the date range
+    let currentDate = new Date(startDate);
+    const finalDate = new Date(endDate);
+
+    while (currentDate <= finalDate) {
+      // For each date, loop through all time slots
+      selectedTimeSlots.forEach((time) => {
+        // Create the date in IST first
+        const istStart = new Date(
+          `${currentDate.toISOString().split("T")[0]}T${time}`
+        );
+
+        // Convert IST to UTC by subtracting 5 hours 30 minutes
+        const utcStart = new Date(istStart.getTime() - (5 * 60 + 30) * 60000);
+
+        // Define the end time for the 1-hour slot in UTC
+        const utcEnd = new Date(utcStart);
+        utcEnd.setHours(utcEnd.getHours() + 1);
+
+        // Add the time range in UTC to the query
+        timeRanges.push({
+          created_at: { $gte: utcStart, $lt: utcEnd },
+        });
+      });
+
+      // Move to the next date
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Match created_at with one of the time ranges
+    query.$or = timeRanges;
+  }
 
   if (busIds[0] !== "all") {
     query.macAddress = { $in: busIds };
   }
   try {
     const personCount = await BnyGeneral.countDocuments(query);
-    res.status(200).json(Math.ceil(personCount * 1.2));
+    res.status(200).json(Math.floor(personCount * 1.2));
     // const personCount = await PersonCounter.findOne(query);
     // res.status(200).json(personCount ? personCount.counter : 0);
   } catch (err) {
-    console.log(err);
     res.status(500).json({ message: err.message });
   }
 };
@@ -356,6 +520,49 @@ exports.getPersonCount = async (req, res) => {
 exports.getFeedbackCount = async (req, res) => {
   const busIds = req.body.selectedBuses || {};
   const query = {};
+
+  const { startDate, endDate, selectedTimeSlots = [], range } = req.body;
+
+  if (
+    startDate &&
+    endDate &&
+    selectedTimeSlots.length > 0 &&
+    range === "custom"
+  ) {
+    const timeRanges = [];
+
+    // Loop through each date in the date range
+    let currentDate = new Date(startDate);
+    const finalDate = new Date(endDate);
+
+    while (currentDate <= finalDate) {
+      // For each date, loop through all time slots
+      selectedTimeSlots.forEach((time) => {
+        // Create the date in IST first
+        const istStart = new Date(
+          `${currentDate.toISOString().split("T")[0]}T${time}`
+        );
+
+        // Convert IST to UTC by subtracting 5 hours 30 minutes
+        const utcStart = new Date(istStart.getTime() - (5 * 60 + 30) * 60000);
+
+        // Define the end time for the 1-hour slot in UTC
+        const utcEnd = new Date(utcStart);
+        utcEnd.setHours(utcEnd.getHours() + 1);
+
+        // Add the time range in UTC to the query
+        timeRanges.push({
+          createdAt: { $gte: utcStart, $lt: utcEnd },
+        });
+      });
+
+      // Move to the next date
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Match created_at with one of the time ranges
+    query.$or = timeRanges;
+  }
 
   if (busIds[0] !== "all") {
     query.macAddress = { $in: busIds };
@@ -553,6 +760,48 @@ exports.getUserInteraction = async (req, res) => {
 exports.getGoals = async (req, res) => {
   const busIds = req.body.selectedBuses || {};
   const query = {};
+  const { startDate, endDate, selectedTimeSlots = [], range } = req.body;
+
+  if (
+    startDate &&
+    endDate &&
+    selectedTimeSlots.length > 0 &&
+    range === "custom"
+  ) {
+    const timeRanges = [];
+
+    // Loop through each date in the date range
+    let currentDate = new Date(startDate);
+    const finalDate = new Date(endDate);
+
+    while (currentDate <= finalDate) {
+      // For each date, loop through all time slots
+      selectedTimeSlots.forEach((time) => {
+        // Create the date in IST first
+        const istStart = new Date(
+          `${currentDate.toISOString().split("T")[0]}T${time}`
+        );
+
+        // Convert IST to UTC by subtracting 5 hours 30 minutes
+        const utcStart = new Date(istStart.getTime() - (5 * 60 + 30) * 60000);
+
+        // Define the end time for the 1-hour slot in UTC
+        const utcEnd = new Date(utcStart);
+        utcEnd.setHours(utcEnd.getHours() + 1);
+
+        // Add the time range in UTC to the query
+        timeRanges.push({
+          created_at: { $gte: utcStart, $lt: utcEnd },
+        });
+      });
+
+      // Move to the next date
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Match created_at with one of the time ranges
+    query.$or = timeRanges;
+  }
 
   if (busIds[0] !== "all") {
     query.macAddress = { $in: busIds };
@@ -607,6 +856,49 @@ exports.getGoals = async (req, res) => {
 exports.getFeedbackInsights = async (req, res) => {
   const busIds = req.body.selectedBuses || {};
   const query = {};
+
+  const { startDate, endDate, selectedTimeSlots = [], range } = req.body;
+
+  if (
+    startDate &&
+    endDate &&
+    selectedTimeSlots.length > 0 &&
+    range === "custom"
+  ) {
+    const timeRanges = [];
+
+    // Loop through each date in the date range
+    let currentDate = new Date(startDate);
+    const finalDate = new Date(endDate);
+
+    while (currentDate <= finalDate) {
+      // For each date, loop through all time slots
+      selectedTimeSlots.forEach((time) => {
+        // Create the date in IST first
+        const istStart = new Date(
+          `${currentDate.toISOString().split("T")[0]}T${time}`
+        );
+
+        // Convert IST to UTC by subtracting 5 hours 30 minutes
+        const utcStart = new Date(istStart.getTime() - (5 * 60 + 30) * 60000);
+
+        // Define the end time for the 1-hour slot in UTC
+        const utcEnd = new Date(utcStart);
+        utcEnd.setHours(utcEnd.getHours() + 1);
+
+        // Add the time range in UTC to the query
+        timeRanges.push({
+          createdAt: { $gte: utcStart, $lt: utcEnd },
+        });
+      });
+
+      // Move to the next date
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Match created_at with one of the time ranges
+    query.$or = timeRanges;
+  }
 
   if (busIds[0] !== "all") {
     query.macAddress = { $in: busIds };

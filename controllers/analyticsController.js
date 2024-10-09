@@ -575,7 +575,6 @@ exports.getFeedbackCount = async (req, res) => {
 
 exports.getUserInteraction = async (req, res) => {
   const busIds = req.body.selectedBuses || [];
-
   const { startDate, endDate, selectedTimeSlots = [], range } = req.body;
 
   try {
@@ -722,29 +721,20 @@ exports.getUserInteraction = async (req, res) => {
       },
     ]);
 
-    // Prepare the data for the response
-    const labels = [];
-    const datasets = {};
-
-    result.forEach((item) => {
-      if (!datasets[item.busName]) {
-        datasets[item.busName] = [];
-      }
-      datasets[item.busName].push(item.avgDuration / 60000); // Convert from milliseconds to minutes
-      labels.push(item.busName);
-    });
-
-    const responseData = {
-      labels: [...new Set(labels)], // Unique labels
-      datasets: Object.keys(datasets).map((busName) => ({
-        label: busName,
-        data: datasets[busName],
-      })),
-    };
+    // Prepare the data for the response in the desired format
+    const series = [
+      {
+        name: "Avg Duration", // Change this name as needed
+        data: result.map((item) => ({
+          x: item.busName,
+          y: item.avgDuration / 60000,
+        })),
+      },
+    ];
 
     res.status(200).json({
       success: true,
-      data: responseData,
+      series, // Use the newly structured data
     });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });

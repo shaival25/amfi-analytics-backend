@@ -71,7 +71,9 @@ exports.getUserData = async (req, res) => {
             ? userAnalytics.goalSelected
             : "N/A",
         goalAmount: sipCalcs ? sipCalcs.maturityAmount : "N/A",
-        investmentDuration: sipCalcs ? sipCalcs.investmentDuration / 12 : "N/A",
+        investmentDuration: sipCalcs
+          ? (sipCalcs.investmentDuration / 12).toFixed(1)
+          : "N/A",
         monthlyInvestment: sipCalcs ? sipCalcs.monthlyInvestment : "N/A",
         feedbacks: feedbacks ? "Y" : "N",
         emailSent:

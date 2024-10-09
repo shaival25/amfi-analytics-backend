@@ -455,6 +455,7 @@ exports.getMascotCount = async (req, res) => {
 
   try {
     const generateQR = await GenerateQR.find(query, { mascot: 1 });
+
     const sachinCount = generateQR.filter((fd) => fd.mascot === 0).length;
     const rohitCount = generateQR.filter((fd) => fd.mascot === 1).length;
     const dhoniCount = generateQR.filter((fd) => fd.mascot === 2).length;
@@ -596,46 +597,31 @@ exports.getUserInteraction = async (req, res) => {
     const now = new Date();
 
     // Function to convert IST to UTC
-    const convertISTtoUTC = (timeSlot) => {
+    const convertISTtoUTC = (timeSlot, date) => {
       const [hours, minutes] = timeSlot.split(":").map(Number);
-      const utcDate = new Date();
-      utcDate.setHours(hours, minutes, 0, 0);
-      utcDate.setHours(utcDate.getHours() - 5);
-      utcDate.setMinutes(utcDate.getMinutes() - 30);
-      return utcDate.toISOString().substr(11, 5); // Return in HH:mm format
+      const utcDate = new Date(date);
+      utcDate.setHours(hours - 5, minutes - 30); // Convert IST to UTC
+      return utcDate;
     };
 
-    // Handle different options
+    // Handle different options based on the range
     switch (range) {
       case "custom": {
-        // Prepare for the custom range case
-        const counts = [];
-
-        // Loop through each date in the range
+        const counts = {};
         let currentDate = new Date(startDate);
         const finalDate = new Date(endDate);
 
         while (currentDate <= finalDate) {
-          const dateSeries = {
-            name: currentDate.toISOString().split("T")[0], // Add current date to series
-            data: [],
-          };
+          const dateStr = currentDate.toISOString().split("T")[0];
 
-          // Loop through each time slot and get counts
-          const countsForSlots = await Promise.all(
+          // Get counts for each time slot
+          await Promise.all(
             selectedTimeSlots.map(async (time) => {
-              // Create IST start time
-              const istStart = new Date(
-                `${currentDate.toISOString().split("T")[0]}T${time}`
-              );
-              // Convert IST to UTC (subtract 5 hours 30 minutes)
-              const utcStart = new Date(
-                istStart.getTime() - (5 * 60 + 30) * 60000
-              );
+              const istStart = new Date(`${dateStr}T${time}`);
+              const utcStart = convertISTtoUTC(time, istStart);
               const utcEnd = new Date(utcStart);
               utcEnd.setHours(utcEnd.getHours() + 1); // 1-hour slot
 
-              // Build the query for the time slot
               const timeSlotQuery = {
                 created_at: { $gte: utcStart, $lt: utcEnd },
                 ...(busIds[0] !== "all" && {
@@ -643,55 +629,111 @@ exports.getUserInteraction = async (req, res) => {
                 }),
               };
 
-              // Get count for this time slot
-              const count = await UserAnalytics.countDocuments(timeSlotQuery);
-              return count;
+              const result = await UserAnalytics.aggregate([
+                {
+                  $lookup: {
+                    from: "bnygenerals",
+                    localField: "userId",
+                    foreignField: "_id",
+                    as: "userDetails",
+                  },
+                },
+                { $unwind: "$userDetails" },
+                {
+                  $match: {
+                    "userDetails.macAddress":
+                      busIds[0] !== "all" ? { $in: busIds } : { $exists: true },
+                    created_at: timeSlotQuery.created_at,
+                  },
+                },
+                {
+                  $lookup: {
+                    from: "buses",
+                    localField: "userDetails.macAddress",
+                    foreignField: "macAddress",
+                    as: "busDetails",
+                  },
+                },
+                { $unwind: "$busDetails" },
+                {
+                  $group: {
+                    _id: "$busDetails.busName",
+                    totalDuration: { $sum: "$journeyDuration" },
+                    totalInteractions: { $sum: 1 },
+                  },
+                },
+                {
+                  $project: {
+                    _id: 0,
+                    busName: "$_id",
+                    avgDuration: {
+                      $cond: [
+                        { $gt: ["$  totalInteractions", 0] },
+                        { $divide: ["$totalDuration", "$totalInteractions"] },
+                        0,
+                      ],
+                    },
+                  },
+                },
+              ]);
+
+              console.log("result", result);
+
+              // Aggregate results by bus name
+              result.forEach((item) => {
+                const key = item.busName;
+                if (!counts[key]) {
+                  counts[key] = {
+                    busName: item.busName,
+                    totalDuration: 0,
+                    totalInteractions: 0,
+                  };
+                }
+                counts[key].totalDuration += item.avgDuration; // sum the average duration
+                counts[key].totalInteractions += item.totalInteractions; // sum total interactions
+              });
             })
           );
 
-          // Add counts for each time slot to the series for this date
-          dateSeries.data = countsForSlots;
-
-          // Push the series for this date
-          counts.push(dateSeries);
-
-          // Move to the next date
           currentDate.setDate(currentDate.getDate() + 1);
         }
 
-        // Prepare the data for the response in the desired format
-        const series = counts.map((dateSeries) => ({
-          name: dateSeries.name, // Date as series name
-          data: dateSeries.data, // Counts for each time slot
-        }));
+        // Convert counts object to array for response
+        const series = [
+          {
+            name: "Avg Duration",
+            data: Object.values(counts).map((item) => ({
+              x: item.busName,
+              y:
+                item.totalDuration /
+                60000 /
+                (counts[item.busName].totalInteractions || 1),
+            })),
+          },
+        ];
 
-        res.status(200).json({
+        return res.status(200).json({
           success: true,
-          series, // Use the newly structured data
+          series,
         });
-
-        break;
       }
-
-      case 1: {
-        const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
-        dateFilter = { created_at: { $gte: oneHourAgo } };
+      case 1:
+        dateFilter = {
+          created_at: { $gte: new Date(now.getTime() - 60 * 60 * 1000) },
+        };
         break;
-      }
 
-      case 6: {
-        const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000);
-        dateFilter = { created_at: { $gte: sixHoursAgo } };
+      case 6:
+        dateFilter = {
+          created_at: { $gte: new Date(now.getTime() - 6 * 60 * 60 * 1000) },
+        };
         break;
-      }
 
-      case 24: {
-        const twentyFourHoursAgo = new Date(
-          now.getTime() - 24 * 60 * 60 * 1000
-        );
-        dateFilter = { created_at: { $gte: twentyFourHoursAgo } };
+      case 24:
+        dateFilter = {
+          created_at: { $gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+        };
         break;
-      }
 
       default:
         return res
@@ -699,13 +741,11 @@ exports.getUserInteraction = async (req, res) => {
           .json({ success: false, message: "Invalid range" });
     }
 
-    // Get the BnyGeneral documents that match the selected buses' macAddresses
-    const busMatchQuery = {};
-    if (busIds[0] !== "all") {
-      busMatchQuery.macAddress = { $in: busIds };
-    }
+    // Prepare bus match query
+    const busMatchQuery =
+      busIds[0] !== "all" ? { macAddress: { $in: busIds } } : {};
 
-    // Aggregate the user analytics data with buses
+    // Aggregate user analytics data
     const result = await UserAnalytics.aggregate([
       {
         $lookup: {
@@ -721,7 +761,7 @@ exports.getUserInteraction = async (req, res) => {
           "userDetails.macAddress": busMatchQuery.macAddress || {
             $exists: true,
           },
-          ...(Object.keys(dateFilter).length && { created_at: dateFilter }),
+          ...(Object.keys(dateFilter).length && dateFilter),
         },
       },
       {
@@ -766,30 +806,30 @@ exports.getUserInteraction = async (req, res) => {
       },
     ]);
 
-    // Prepare the data for the response in the desired format
+    // Prepare the response data
     const series = [
       {
-        name: "Avg Duration", // Change this name as needed
+        name: "Avg Duration",
         data: result.map((item) => ({
           x: item.busName,
-          y: item.avgDuration / 60000,
+          y: item.avgDuration / 60000, // Convert milliseconds to minutes
         })),
       },
     ];
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      series, // Use the newly structured data
+      series,
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error(err);
+    return res.status(500).json({ success: false, message: err.message });
   }
 };
 
 exports.getGoals = async (req, res) => {
   const busIds = req.body.selectedBuses || {};
   const query = {};
-
   const { startDate, endDate, selectedTimeSlots = [], range } = req.body;
 
   if (range === "custom") {

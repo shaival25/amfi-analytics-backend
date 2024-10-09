@@ -20,9 +20,6 @@ const checkPermission = (requiredPermission) => {
       if (permissions) {
         // Permissions found in cache, parse them
         permissions = JSON.parse(permissions);
-        console.log(
-          `Permissions for role ${user.role.name} fetched from Redis`
-        );
       } else {
         // Permissions not in cache, fetch from MongoDB
         const role = await Role.findById(roleId).populate("permissions");

@@ -677,8 +677,6 @@ exports.getUserInteraction = async (req, res) => {
                 },
               ]);
 
-              console.log("result", result);
-
               // Aggregate results by bus name
               result.forEach((item) => {
                 const key = item.busName;
@@ -822,7 +820,6 @@ exports.getUserInteraction = async (req, res) => {
       series,
     });
   } catch (err) {
-    console.error(err);
     return res.status(500).json({ success: false, message: err.message });
   }
 };

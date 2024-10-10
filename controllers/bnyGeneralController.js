@@ -6,12 +6,18 @@ const BusController = require("./busController");
 
 exports.getBnyGeneral = async (req, res) => {
   try {
-    const bnyGenerals = await BnyGeneral.find({ deleted_at: null }).sort({
-      created_at: -1,
-    });
+    const page = parseInt(req.query.page) || 1; // Default to page 1
+    const limit = parseInt(req.query.limit) || 20; // Default to 20 documents per page
+    const skip = (page - 1) * limit; // Calculate the number of documents to skip
+
+    const bnyGenerals = await BnyGeneral.find({ deleted_at: null })
+      .sort({ created_at: -1 })
+      .skip(skip)
+      .limit(limit); // Apply pagination
+
     const modifiedBnyGenerals = bnyGenerals.map(async (fd) => {
       const busName = await BusController.getBusName(fd.macAddress);
-      const createdDate = new Date(fd.created_at).toLocaleString("en-US", {
+      const createdDate = new Date(fd.created_at).toLocaleString("en-IN", {
         timeZone: "Asia/Kolkata",
         year: "numeric",
         month: "long",
@@ -27,9 +33,22 @@ exports.getBnyGeneral = async (req, res) => {
         image: `/api/bnyGeneral/view/${fd.image}/${fd.macAddress}`,
       };
     });
+
     const resolvedModifiedBnyGenerals = await Promise.all(modifiedBnyGenerals);
-    res.status(200).json(resolvedModifiedBnyGenerals);
+
+    const totalDocuments = await BnyGeneral.countDocuments({
+      deleted_at: null,
+    }); // Get total count of documents
+    const totalPages = Math.ceil(totalDocuments / limit); // Calculate total pages
+
+    res.status(200).json({
+      data: resolvedModifiedBnyGenerals,
+      currentPage: page,
+      totalPages,
+      totalDocuments,
+    });
   } catch (err) {
+    console.log(err);
     res.status(500).json({ message: err.message });
   }
 };

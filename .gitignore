@@ -137,3 +137,5 @@ info.json
 
 #temp
 temp/
+
+package-lock.json

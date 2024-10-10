@@ -34,28 +34,47 @@ exports.getUserData = async (req, res) => {
   try {
     // Fetch all documents from bnygeneral
     const generalDocs = await BnyGeneral.find({}).sort({ created_at: -1 });
-    const dataForExcel = [];
 
-    for (const doc of generalDocs) {
-      // Calculate Age from DOB
+    // Collecting all user IDs for batch fetching
+    const userIds = generalDocs.map(doc => doc._id);
+
+    // Fetching data in batches
+    const userAnalyticsMap = await UserAnalytics.find({ userId: { $in: userIds } }).lean();
+    const sipCalcsMap = await Sipcalcs.find({ userId: { $in: userIds } }).lean();
+    const feedbacksMap = await Feedbacks.find({ userId: { $in: userIds } }).lean();
+
+    // Maps for lookup
+    const userAnalyticsLookup = {};
+    const sipCalcsLookup = {};
+    const feedbacksLookup = {};
+
+    userAnalyticsMap.forEach(ua => {
+      userAnalyticsLookup[ua.userId] = ua;
+    });
+
+    sipCalcsMap.forEach(sc => {
+      sipCalcsLookup[sc.userId] = sc;
+    });
+
+    feedbacksMap.forEach(fb => {
+      feedbacksLookup[fb.userId] = fb;
+    });
+
+    // Preparing Excel data
+    const dataForExcel = await Promise.all(generalDocs.map(async (doc) => {
       const age = moment().diff(moment(doc.dob), "years");
-
-      // Convert created_at from UTC to IST
       const istDate = moment(doc.created_at).tz("Asia/Kolkata");
       const formattedDate = istDate.format("DD-MM-YYYY");
       const formattedTime = istDate.format("HH:mm:ss");
-
-      // Get Bus Name using macAddress
       const busName = await BusController.getBusName(doc.macAddress);
 
-      // Fetch related data from useranalytics, sipcalcs, feedbacks using doc._id
-      const userAnalytics = await UserAnalytics.findOne({ userId: doc._id });
-      const sipCalcs = await Sipcalcs.findOne({ userId: doc._id });
-      const feedbacks = await Feedbacks.findOne({ userId: doc._id });
+      // Lookup related data
+      const userAnalytics = userAnalyticsLookup[doc._id] || {};
+      const sipCalcs = sipCalcsLookup[doc._id] || {};
+      const feedbacks = feedbacksLookup[doc._id];
 
-      // Create a single object with all required fields
-      const combinedData = {
-        busName: busName,
+      return {
+        busName,
         date: formattedDate,
         city: doc.city,
         state: doc.state,
@@ -64,34 +83,24 @@ exports.getUserData = async (req, res) => {
         contactNumber: doc.contactNumber,
         gender: doc.gender,
         dob: doc.dob,
-        age: age,
+        age,
         time: formattedTime,
-        goalOption:
-          userAnalytics && userAnalytics.goalSelected
-            ? userAnalytics.goalSelected
-            : "N/A",
-        goalAmount: sipCalcs ? sipCalcs.maturityAmount : "N/A",
-        investmentDuration: sipCalcs
-          ? (sipCalcs.investmentDuration / 12).toFixed(1)
-          : "N/A",
-        monthlyInvestment: sipCalcs ? sipCalcs.monthlyInvestment : "N/A",
+        goalOption: userAnalytics.goalSelected || "N/A",
+        goalAmount: sipCalcs.maturityAmount || "N/A",
+        investmentDuration: sipCalcs.investmentDuration ? (sipCalcs.investmentDuration / 12).toFixed(1) : "N/A",
+        expectedROR: sipCalcs.expectedROR ? (sipCalcs.expectedROR * 100).toFixed(1) : "N/A",
+        totalInvestment: sipCalcs.totalInvestment ? (sipCalcs.totalInvestment).toFixed(1) : "N/A",
+        monthlyInvestment: sipCalcs.monthlyInvestment || "N/A",
         feedbacks: feedbacks ? "Y" : "N",
-        emailSent:
-          userAnalytics && userAnalytics.goalSelected && sipCalcs
-            ? userAnalytics.emailSent
-              ? "Y"
-              : "N"
-            : "N/A",
+        emailSent: (userAnalytics.goalSelected && sipCalcs) ? (userAnalytics.emailSent ? "Y" : "N") : "N/A",
       };
+    }));
 
-      dataForExcel.push(combinedData);
-    }
-
-    // Create Excel sheet
+    // Excel Creation
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("User Data");
 
-    // Add Header Row
+    // Sheet Headers
     worksheet.columns = [
       { header: "Bus Name", key: "busName" },
       { header: "Date", key: "date" },
@@ -105,34 +114,33 @@ exports.getUserData = async (req, res) => {
       { header: "Age", key: "age" },
       { header: "Time", key: "time" },
       { header: "Goal Option", key: "goalOption" },
-      { header: "Calculator Amnt", key: "goalAmount" },
-      { header: "No of years", key: "investmentDuration" },
-      { header: "SIP Amount", key: "monthlyInvestment" },
+      { header: "Goal Amnt", key: "goalAmount" },
+      { header: "Investment Duration", key: "investmentDuration" },
+      { header: "Rate of Return", key: "expectedROR" },
+      { header: "Monthly SIP Amount", key: "monthlyInvestment" },
+      { header: "Total Investment", key: "totalInvestment" },
       { header: "Feedback Y/N", key: "feedbacks" },
       { header: "Email Y/N", key: "emailSent" },
     ];
 
     // Add Data Rows
-    dataForExcel.forEach((user) => {
+    dataForExcel.forEach(user => {
       worksheet.addRow(user);
     });
 
     // Set response headers for Excel file
     const today = new Date();
-    const dateString = `${today.getFullYear()}-${(today.getMonth() + 1)
-      .toString()
-      .padStart(2, "0")}-${today.getDate().toString().padStart(2, "0")}`;
-    res.setHeader(
-      "Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    );
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename=User_Data-${dateString}.xlsx`
-    );
+    const dateString = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
 
-    // Send Excel file
+    res.setHeader("Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+    res.setHeader("Content-Disposition",
+      `attachment; filename=User_Data-${dateString}.xlsx`);
+
+    // Stream Excel
     await workbook.xlsx.write(res);
+
     res.end();
   } catch (err) {
     console.error(err);

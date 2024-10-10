@@ -120,7 +120,7 @@ exports.getUserData = async (req, res) => {
       { header: "Monthly SIP Amount", key: "monthlyInvestment" },
       { header: "Total Investment", key: "totalInvestment" },
       { header: "Feedback Y/N", key: "feedbacks" },
-      { header: "Email Y/N", key: "emailSent" },
+      { header: "Email Sent Y/N", key: "emailSent" },
     ];
 
     // Add Data Rows

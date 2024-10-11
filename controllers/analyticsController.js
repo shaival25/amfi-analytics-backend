@@ -4,6 +4,7 @@ const Feedback = require("../models/feedback");
 const UserAnalytics = require("../models/userAnalytics");
 const Bus = require("../models/bus");
 const redisClient = require("../config/redisClient");
+const moment = require("moment-timezone");
 exports.getCountForLastHour = async (req, res) => {
   const busIds = req.body.selectedBuses || {};
   const endTime = new Date();
@@ -253,87 +254,84 @@ exports.getCountForLastYear = async (req, res) => {
 
   res.json({ labels, counts });
 };
-
 exports.getCustomTimeSlotCounts = async (req, res) => {
-  const busIds = req.body.selectedBuses || {};
-  const { startDate, endDate, selectedTimeSlots = [] } = req.body;
+  const { startDate, endDate, selectedBuses, selectedTimeSlots } = req.body;
 
-  if (!startDate || !endDate || selectedTimeSlots.length === 0) {
-    return res
-      .status(200)
-      .json({ message: "Please provide a valid date range and time slots." });
+  if (!startDate || !endDate) {
+    return res.status(200).json({ error: "Start and end dates are required." });
   }
 
-  // Function to parse "dd/mm/yyyy" to a valid JavaScript Date object
+  // Function to parse dd/mm/yyyy date format
   const parseDate = (dateStr) => {
-    const [day, month, year] = dateStr.split("/");
-    return new Date(`${year}-${month}-${day}`);
+    const [day, month, year] = dateStr.split("/").map(Number);
+    return new Date(Date.UTC(year, month - 1, day)); // Months are zero-based in JS
   };
 
-  // Parse the input dates in IST
-  const start = parseDate(startDate);
-  const end = parseDate(endDate);
+  // Convert dates to UTC
+  const startUTC = parseDate(startDate);
+  const endUTC = parseDate(endDate);
 
-  const query = {};
-  if (busIds[0] !== "all") {
-    query.macAddress = { $in: busIds };
+  // Set the end date to the end of the last day in UTC
+  endUTC.setUTCHours(23, 59, 59, 999);
+
+  // Prepare the query for buses
+  let query = {
+    created_at: {
+      $gte: startUTC,
+      $lte: endUTC,
+    },
+  };
+
+  // Filter by selected buses if not 'all'
+  if (selectedBuses[0] !== "all") {
+    query.macAddress = { $in: selectedBuses };
   }
 
-  // Time slot labels should remain in IST
-  const labels = selectedTimeSlots;
+  try {
+    // Fetch data based on the query
+    const results = await BnyGeneral.find(query);
 
-  const counts = []; // Array to hold data for each day in the range
+    // Create an object to hold counts for each date
+    const dateCounts = {};
 
-  // Loop through each date in the range
-  let currentDate = start;
-  const finalDate = end;
+    results.forEach((entry) => {
+      const entryTime = new Date(entry.created_at); // Assuming 'created_at' holds your time data
+      if (!isNaN(entryTime)) {
+        // Check if entryTime is a valid date
+        const utcHour = entryTime.getUTCHours(); // Get UTC hour
+        const istHour = (utcHour + 5) % 24; // Convert to IST, handle wraparound
 
-  while (currentDate <= finalDate) {
-    const dateSeries = {
-      // Convert the current date to IST for display (yyyy-mm-dd)
-      name: new Date(currentDate.getTime() + (5 * 60 + 30) * 60000) // convert from UTC to IST
-        .toISOString()
-        .split("T")[0],
-      data: [],
+        // Get the date as a string in dd/mm/yyyy format
+        const entryDate = `${entryTime.getUTCDate()}/${
+          entryTime.getUTCMonth() + 1
+        }/${entryTime.getUTCFullYear()}`;
+
+        // Initialize the counts for the date if it doesn't exist
+        if (!dateCounts[entryDate]) {
+          dateCounts[entryDate] = new Array(24).fill(0);
+        }
+
+        // Increment the count for the corresponding hour
+        dateCounts[entryDate][istHour]++;
+      } else {
+        console.error("Invalid date in entry:", entry.created_at);
+      }
+    });
+
+    // Prepare the response
+    const response = {
+      labels: selectedTimeSlots, // Use provided time slots as labels
+      counts: Object.keys(dateCounts).map((date) => ({
+        name: date,
+        data: dateCounts[date],
+      })),
     };
 
-    // Loop through each time slot and get counts
-    const countsForSlots = await Promise.all(
-      selectedTimeSlots.map(async (time) => {
-        // Create IST start time for the current date and slot time
-        const istStart = new Date(
-          `${currentDate.toISOString().split("T")[0]}T${time}`
-        );
-
-        // Convert IST to UTC for querying (subtract 5 hours 30 minutes)
-        const utcStart = new Date(istStart.getTime() - (5 * 60 + 30) * 60000);
-        const utcEnd = new Date(utcStart);
-        utcEnd.setHours(utcEnd.getHours() + 1); // 1-hour slot
-
-        // Build the query for the time slot using UTC times
-        const timeSlotQuery = {
-          ...query,
-          created_at: { $gte: utcStart, $lt: utcEnd },
-        };
-
-        // Get the count for this time slot
-        const count = await BnyGeneral.countDocuments(timeSlotQuery);
-        return count;
-      })
-    );
-
-    // Add counts for each time slot to the series for this date
-    dateSeries.data = countsForSlots;
-
-    // Push the series for this date
-    counts.push(dateSeries);
-
-    // Move to the next date
-    currentDate.setDate(currentDate.getDate() + 1);
+    res.status(200).json(response);
+  } catch (error) {
+    console.error("Error fetching data:", error);
+    res.status(500).json({ message: "Internal Server Error" });
   }
-
-  // Send the result with IST-converted dates and time slots
-  res.json({ labels, counts });
 };
 
 exports.getCountForAll = async (req, res) => {

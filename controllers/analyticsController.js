@@ -261,47 +261,62 @@ exports.getCustomTimeSlotCounts = async (req, res) => {
   if (!startDate || !endDate || selectedTimeSlots.length === 0) {
     return res
       .status(200)
-      .json({ message: "Please provide valid date range and time slots." });
+      .json({ message: "Please provide a valid date range and time slots." });
   }
+
+  // Function to parse "dd/mm/yyyy" to a valid JavaScript Date object
+  const parseDate = (dateStr) => {
+    const [day, month, year] = dateStr.split("/");
+    return new Date(`${year}-${month}-${day}`);
+  };
+
+  // Parse the input dates in IST
+  const start = parseDate(startDate);
+  const end = parseDate(endDate);
 
   const query = {};
   if (busIds[0] !== "all") {
     query.macAddress = { $in: busIds };
   }
 
-  const labels = selectedTimeSlots; // Time slots will be used as labels for the spine chart
+  // Time slot labels should remain in IST
+  const labels = selectedTimeSlots;
 
   const counts = []; // Array to hold data for each day in the range
 
   // Loop through each date in the range
-  let currentDate = new Date(startDate);
-  const finalDate = new Date(endDate);
+  let currentDate = start;
+  const finalDate = end;
 
   while (currentDate <= finalDate) {
     const dateSeries = {
-      name: currentDate.toISOString().split("T")[0], // Add the current date to the series
+      // Convert the current date to IST for display (yyyy-mm-dd)
+      name: new Date(currentDate.getTime() + (5 * 60 + 30) * 60000) // convert from UTC to IST
+        .toISOString()
+        .split("T")[0],
       data: [],
     };
 
     // Loop through each time slot and get counts
     const countsForSlots = await Promise.all(
       selectedTimeSlots.map(async (time) => {
-        // Create IST start time
+        // Create IST start time for the current date and slot time
         const istStart = new Date(
           `${currentDate.toISOString().split("T")[0]}T${time}`
         );
-        // Convert IST to UTC (subtract 5 hours 30 minutes)
+
+        // Convert IST to UTC for querying (subtract 5 hours 30 minutes)
         const utcStart = new Date(istStart.getTime() - (5 * 60 + 30) * 60000);
         const utcEnd = new Date(utcStart);
         utcEnd.setHours(utcEnd.getHours() + 1); // 1-hour slot
 
-        // Build query for the time slot
+        // Build the query for the time slot using UTC times
         const timeSlotQuery = {
           ...query,
           created_at: { $gte: utcStart, $lt: utcEnd },
         };
 
-        // Get count for this time slot
+        // Get the count for this time slot
         const count = await BnyGeneral.countDocuments(timeSlotQuery);
         return count;
       })
@@ -316,6 +331,39 @@ exports.getCustomTimeSlotCounts = async (req, res) => {
     // Move to the next date
     currentDate.setDate(currentDate.getDate() + 1);
   }
+
+  // Send the result with IST-converted dates and time slots
+  res.json({ labels, counts });
+};
+
+exports.getCountForAll = async (req, res) => {
+  const busIds = req.body.selectedBuses || {};
+
+  // Define the query object
+  let query = {};
+
+  // If busIds is provided and not empty, add it to the query
+  if (busIds[0] !== "all") {
+    query.macAddress = { $in: busIds };
+  }
+
+  // Query the database to get counts grouped by day
+  const results = await BnyGeneral.aggregate([
+    { $match: query },
+    {
+      $group: {
+        _id: {
+          $dateToString: { format: "%Y-%m-%d", date: "$created_at" },
+        },
+        count: { $sum: 1 },
+      },
+    },
+    { $sort: { _id: 1 } }, // Sort by date
+  ]);
+
+  // Prepare labels and counts arrays
+  const labels = results.map((result) => result._id); // Labels will be dates in "YYYY-MM-DD" format
+  const counts = results.map((result) => result.count); // Corresponding counts
 
   res.json({ labels, counts });
 };
@@ -332,6 +380,8 @@ exports.getCountByRange = async (req, res) => {
       return exports.getCountForLastMonth(req, res);
     case "8760":
       return exports.getCountForLastYear(req, res);
+    case "all":
+      return exports.getCountForAll(req, res);
     case "custom":
       return exports.getCustomTimeSlotCounts(req, res);
     default:
@@ -715,6 +765,9 @@ exports.getUserInteraction = async (req, res) => {
           series,
         });
       }
+      case "all":
+        dateFilter = {};
+        break;
       case 1:
         dateFilter = {
           created_at: { $gte: new Date(now.getTime() - 60 * 60 * 1000) },

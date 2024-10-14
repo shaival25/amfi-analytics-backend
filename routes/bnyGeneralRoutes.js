@@ -11,6 +11,13 @@ router.get(
   bnyGeneralController.getBnyGeneral
 );
 
+router.post(
+  "/search",
+  authenticate,
+  checkRole(["bnyGeneral:read"]),
+  bnyGeneralController.searchBnyGeneral
+);
+
 router.delete(
   "/",
   authenticate,

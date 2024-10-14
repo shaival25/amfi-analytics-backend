@@ -89,3 +89,70 @@ exports.deleteBnyGeneral = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+exports.searchBnyGeneral = async (req, res) => {
+  try {
+    const { searchText } = req.body;
+    const page = parseInt(req.query.page) || 1; // Default to page 1
+    const limit = parseInt(req.query.limit) || 20; // Default to 20 documents per page
+    const skip = (page - 1) * limit; // Calculate the number of documents to skip
+
+    const query = {
+      deleted_at: null,
+    };
+    if (searchText) {
+      if (!isNaN(searchText)) {
+        query.$or = [{ contactNumber: parseInt(searchText) }];
+      } else {
+        // If it's a string, search in fullName and email
+        query.$or = [
+          { fullName: { $regex: searchText, $options: "i" } },
+          { email: { $regex: searchText, $options: "i" } },
+        ];
+      }
+    }
+
+    // Check if searchText is a number or a string
+
+    const bnyGenerals = await BnyGeneral.find(query)
+      .sort({ created_at: -1 })
+      .skip(skip)
+      .limit(limit); // Apply pagination
+
+    const modifiedBnyGenerals = bnyGenerals.map(async (fd) => {
+      const busName = await BusController.getBusName(fd.macAddress);
+      const createdDate = new Date(fd.created_at).toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+      return {
+        ...fd._doc,
+        busName,
+        date: createdDate,
+        image: `/api/bnyGeneral/view/${fd.image}/${fd.macAddress}`,
+      };
+    });
+    const totalDocuments = await BnyGeneral.countDocuments({
+      ...query,
+      deleted_at: null,
+    });
+
+    const resolvedModifiedBnyGenerals = await Promise.all(modifiedBnyGenerals);
+    const totalPages = Math.ceil(totalDocuments / limit); // Calculate total pages
+
+    res.status(200).json({
+      data: resolvedModifiedBnyGenerals,
+      currentPage: page,
+      totalPages,
+      totalDocuments,
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ message: err.message });
+  }
+};

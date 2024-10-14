@@ -1,4 +1,5 @@
 const express = require("express");
+const rateLimit = require("express-rate-limit");
 const app = express();
 const cors = require("cors");
 const fs = require("fs");
@@ -33,6 +34,15 @@ const credentials = { key: sslKey, cert: sslCert };
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
+// Define rate limiting rules
+const apiLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: "Too many requests, please try again after 1 minutes.",
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+});
+app.use(apiLimiter);
 
 // Serve the images from the public directory
 app.use("/images", express.static(path.join(__dirname, "email-images")));

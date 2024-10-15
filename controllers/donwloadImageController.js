@@ -91,7 +91,9 @@ exports.getUserData = async (req, res) => {
         const userAnalytics = userAnalyticsLookup[doc._id] || {};
         const sipCalcs = sipCalcsLookup[doc._id] || {};
         const feedbacks = feedbacksLookup[doc._id];
-
+        const question1 = feedbacks?.responses[0]?.response || "N/A";
+        const question2 = feedbacks?.responses[1]?.response || "N/A";
+        const question3 = feedbacks?.responses[2]?.response || "N/A";
         return {
           busName,
           date: formattedDate,
@@ -126,6 +128,9 @@ exports.getUserData = async (req, res) => {
           interactionDuration: userAnalytics.journeyDuration
             ? convertMillisecondsToMinutes(userAnalytics.journeyDuration)
             : "N/A",
+          question1,
+          question2,
+          question3,
         };
       })
     );
@@ -156,6 +161,16 @@ exports.getUserData = async (req, res) => {
       { header: "Feedback Y/N", key: "feedbacks" },
       { header: "Email Sent Y/N", key: "emailSent" },
       { header: "Interaction Duration", key: "interactionDuration" },
+      { header: "How was your Overall Experience", key: "question1" },
+      {
+        header: "Did you find the information provided useful?",
+        key: "question2",
+      },
+      {
+        header:
+          "How likely are you to recommend mutual funds to friends or family?",
+        key: "question3",
+      },
     ];
 
     // Add Data Rows

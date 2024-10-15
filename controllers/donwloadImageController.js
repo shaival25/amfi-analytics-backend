@@ -10,6 +10,18 @@ const Feedbacks = require("../models/feedback");
 const BnyGeneral = require("../models/bnyGeneral");
 const redis = require("../config/redisClient");
 
+function convertMillisecondsToMinutes(milliseconds) {
+  // Convert milliseconds to total seconds
+  const totalSeconds = Math.floor(milliseconds / 1000);
+
+  // Get the minutes and remaining seconds
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  // Return formatted as "minutes:seconds", ensuring seconds are always two digits
+  return `${minutes}:${seconds < 10 ? "0" : ""}${seconds}`;
+}
+
 exports.downloadImages = async (req, res) => {
   const { filename } = req.params;
   const { macAddress } = req.params;
@@ -111,7 +123,9 @@ exports.getUserData = async (req, res) => {
                 ? "Y"
                 : "N"
               : "N/A",
-          interactionDuration: userAnalytics.journeyDuration / 60000 || "N/A",
+          interactionDuration: userAnalytics.journeyDuration
+            ? convertMillisecondsToMinutes(userAnalytics.journeyDuration)
+            : "N/A",
         };
       })
     );

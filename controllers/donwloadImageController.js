@@ -36,65 +36,85 @@ exports.getUserData = async (req, res) => {
     const generalDocs = await BnyGeneral.find({}).sort({ created_at: -1 });
 
     // Collecting all user IDs for batch fetching
-    const userIds = generalDocs.map(doc => doc._id);
+    const userIds = generalDocs.map((doc) => doc._id);
 
     // Fetching data in batches
-    const userAnalyticsMap = await UserAnalytics.find({ userId: { $in: userIds } }).lean();
-    const sipCalcsMap = await Sipcalcs.find({ userId: { $in: userIds } }).lean();
-    const feedbacksMap = await Feedbacks.find({ userId: { $in: userIds } }).lean();
+    const userAnalyticsMap = await UserAnalytics.find({
+      userId: { $in: userIds },
+    }).lean();
+    const sipCalcsMap = await Sipcalcs.find({
+      userId: { $in: userIds },
+    }).lean();
+    const feedbacksMap = await Feedbacks.find({
+      userId: { $in: userIds },
+    }).lean();
 
     // Maps for lookup
     const userAnalyticsLookup = {};
     const sipCalcsLookup = {};
     const feedbacksLookup = {};
 
-    userAnalyticsMap.forEach(ua => {
+    userAnalyticsMap.forEach((ua) => {
       userAnalyticsLookup[ua.userId] = ua;
     });
 
-    sipCalcsMap.forEach(sc => {
+    sipCalcsMap.forEach((sc) => {
       sipCalcsLookup[sc.userId] = sc;
     });
 
-    feedbacksMap.forEach(fb => {
+    feedbacksMap.forEach((fb) => {
       feedbacksLookup[fb.userId] = fb;
     });
 
     // Preparing Excel data
-    const dataForExcel = await Promise.all(generalDocs.map(async (doc) => {
-      const age = moment().diff(moment(doc.dob), "years");
-      const istDate = moment(doc.created_at).tz("Asia/Kolkata");
-      const formattedDate = istDate.format("DD-MM-YYYY");
-      const formattedTime = istDate.format("HH:mm:ss");
-      const busName = await BusController.getBusName(doc.macAddress);
+    const dataForExcel = await Promise.all(
+      generalDocs.map(async (doc) => {
+        const age = moment().diff(moment(doc.dob), "years");
+        const istDate = moment(doc.created_at).tz("Asia/Kolkata");
+        const formattedDate = istDate.format("DD-MM-YYYY");
+        const formattedTime = istDate.format("HH:mm:ss");
+        const busName = await BusController.getBusName(doc.macAddress);
 
-      // Lookup related data
-      const userAnalytics = userAnalyticsLookup[doc._id] || {};
-      const sipCalcs = sipCalcsLookup[doc._id] || {};
-      const feedbacks = feedbacksLookup[doc._id];
+        // Lookup related data
+        const userAnalytics = userAnalyticsLookup[doc._id] || {};
+        const sipCalcs = sipCalcsLookup[doc._id] || {};
+        const feedbacks = feedbacksLookup[doc._id];
 
-      return {
-        busName,
-        date: formattedDate,
-        city: doc.city,
-        state: doc.state,
-        fullname: doc.fullName,
-        email: doc.email,
-        contactNumber: doc.contactNumber,
-        gender: doc.gender,
-        dob: doc.dob,
-        age,
-        time: formattedTime,
-        goalOption: userAnalytics.goalSelected || "N/A",
-        goalAmount: sipCalcs.maturityAmount || "N/A",
-        investmentDuration: sipCalcs.investmentDuration ? (sipCalcs.investmentDuration / 12).toFixed(1) : "N/A",
-        expectedROR: sipCalcs.expectedROR ? (sipCalcs.expectedROR * 100).toFixed(1) : "N/A",
-        totalInvestment: sipCalcs.totalInvestment ? (sipCalcs.totalInvestment).toFixed(1) : "N/A",
-        monthlyInvestment: sipCalcs.monthlyInvestment || "N/A",
-        feedbacks: feedbacks ? "Y" : "N",
-        emailSent: (userAnalytics.goalSelected && sipCalcs) ? (userAnalytics.emailSent ? "Y" : "N") : "N/A",
-      };
-    }));
+        return {
+          busName,
+          date: formattedDate,
+          city: doc.city,
+          state: doc.state,
+          fullname: doc.fullName,
+          email: doc.email,
+          contactNumber: doc.contactNumber,
+          gender: doc.gender,
+          dob: doc.dob,
+          age,
+          time: formattedTime,
+          goalOption: userAnalytics.goalSelected || "N/A",
+          goalAmount: sipCalcs.maturityAmount || "N/A",
+          investmentDuration: sipCalcs.investmentDuration
+            ? (sipCalcs.investmentDuration / 12).toFixed(1)
+            : "N/A",
+          expectedROR: sipCalcs.expectedROR
+            ? (sipCalcs.expectedROR * 100).toFixed(1)
+            : "N/A",
+          totalInvestment: sipCalcs.totalInvestment
+            ? sipCalcs.totalInvestment.toFixed(1)
+            : "N/A",
+          monthlyInvestment: sipCalcs.monthlyInvestment || "N/A",
+          feedbacks: feedbacks ? "Y" : "N",
+          emailSent:
+            userAnalytics.goalSelected && sipCalcs
+              ? userAnalytics.emailSent
+                ? "Y"
+                : "N"
+              : "N/A",
+          interactionDuration: userAnalytics.journeyDuration / 60000 || "N/A",
+        };
+      })
+    );
 
     // Excel Creation
     const workbook = new ExcelJS.Workbook();
@@ -121,22 +141,29 @@ exports.getUserData = async (req, res) => {
       { header: "Total Investment", key: "totalInvestment" },
       { header: "Feedback Y/N", key: "feedbacks" },
       { header: "Email Sent Y/N", key: "emailSent" },
+      { header: "Interaction Duration", key: "interactionDuration" },
     ];
 
     // Add Data Rows
-    dataForExcel.forEach(user => {
+    dataForExcel.forEach((user) => {
       worksheet.addRow(user);
     });
 
     // Set response headers for Excel file
     const today = new Date();
-    const dateString = `${today.getFullYear()}-${(today.getMonth() + 1).toString().padStart(2, '0')}-${today.getDate().toString().padStart(2, '0')}`;
+    const dateString = `${today.getFullYear()}-${(today.getMonth() + 1)
+      .toString()
+      .padStart(2, "0")}-${today.getDate().toString().padStart(2, "0")}`;
 
-    res.setHeader("Content-Type",
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
 
-    res.setHeader("Content-Disposition",
-      `attachment; filename=User_Data-${dateString}.xlsx`);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=User_Data-${dateString}.xlsx`
+    );
 
     // Stream Excel
     await workbook.xlsx.write(res);

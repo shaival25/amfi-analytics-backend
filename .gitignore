@@ -139,3 +139,5 @@ info.json
 temp/
 
 package-lock.json
+db-backup
+backup-db

@@ -34,4 +34,6 @@ module.exports = {
   macAddress: process.env.MAC_ADDRESS || "08-71-90-32-8B-2E",
   apiKey: "bb3e16889cbbe1221ec55a0978bf33a3",
   POSTMARK_API_KEY: process.env.POSTMARK_API_KEY,
+  mongoURIBackup: process.env.MONGO_URI_BACKUP,
+  mongoURIBackupDB: process.env.MONGO_URI_BACKUP_DB,
 };

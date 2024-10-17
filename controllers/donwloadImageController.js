@@ -125,6 +125,16 @@ exports.getUserData = async (req, res) => {
                 ? "Y"
                 : "N"
               : "N/A",
+          startTime: userAnalytics?.journeyStarted
+            ? userAnalytics?.journeyStarted?.toLocaleTimeString("en-US", {
+                timeZone: "Asia/Kolkata",
+              })
+            : "N/A",
+          endTime: userAnalytics?.journeyEnded
+            ? userAnalytics?.journeyEnded?.toLocaleTimeString("en-US", {
+                timeZone: "Asia/Kolkata",
+              })
+            : "N/A",
           interactionDuration: userAnalytics.journeyDuration
             ? convertMillisecondsToMinutes(userAnalytics.journeyDuration)
             : "N/A",
@@ -151,7 +161,7 @@ exports.getUserData = async (req, res) => {
       { header: "Gender M/F", key: "gender" },
       { header: "DOB", key: "dob" },
       { header: "Age", key: "age" },
-      { header: "Time", key: "time" },
+      // { header: "Time", key: "time" },
       { header: "Goal Option", key: "goalOption" },
       { header: "Goal Amnt", key: "goalAmount" },
       { header: "Investment Duration", key: "investmentDuration" },
@@ -160,6 +170,8 @@ exports.getUserData = async (req, res) => {
       { header: "Total Investment", key: "totalInvestment" },
       { header: "Feedback Y/N", key: "feedbacks" },
       { header: "Email Sent Y/N", key: "emailSent" },
+      { header: "Start Time", key: "startTime" },
+      { header: "End Time", key: "endTime" },
       { header: "Interaction Duration", key: "interactionDuration" },
       { header: "How was your Overall Experience", key: "question1" },
       {

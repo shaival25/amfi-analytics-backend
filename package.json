@@ -6,6 +6,10 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "create-superadmin": "node scripts/createSuperAdmin.js",
     "populate-permissions": "node scripts/populatePermissions.js",
+    "user-journey": "node scripts/userJourney.js",
+    "update-journey-end": "node scripts/updateJourneyEnded.js",
+    "update-same-userJourney": "node scripts/sameJourneyDuration.js",
+    "backup": "node scripts/backup.js",
     "dev": "nodemon"
   },
   "author": "",

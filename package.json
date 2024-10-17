@@ -9,6 +9,7 @@
     "user-journey": "node scripts/userJourney.js",
     "update-journey-end": "node scripts/updateJourneyEnded.js",
     "update-same-userJourney": "node scripts/sameJourneyDuration.js",
+    "auto-mailer": "node scripts/automailer.js",
     "backup": "node scripts/backup.js",
     "dev": "nodemon"
   },
@@ -33,6 +34,7 @@
     "moment-timezone": "^0.5.46",
     "mongoose": "^8.7.0",
     "multer": "^1.4.5-lts.1",
+    "node-cron": "^3.0.3",
     "nodemon": "^3.1.4",
     "path": "^0.12.7",
     "postmark": "^4.0.5",

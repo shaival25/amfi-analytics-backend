@@ -19,10 +19,11 @@ const formatIndianCurrency = (amount) => {
     /(\d)(?=(\d\d)+\d$)/g,
     "$1,"
   );
-  return `${formattedIntegerPart}${
-    decimalPart ? "." + decimalPart.slice(0, 2) : ""
-  }`;
+  return `${formattedIntegerPart}${decimalPart ? "." + decimalPart.slice(0, 2) : ""
+    }`;
 };
+// Define the email regex
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 async function sendEmail() {
   try {
@@ -33,7 +34,6 @@ async function sendEmail() {
       console.log("No users found with emailSent set to false");
       return;
     }
-
     // Loop through each user analytics entry
     for (const analyticsUser of analyticsUsers) {
       // Find the corresponding user by userId in the BnyGeneral model
@@ -42,6 +42,12 @@ async function sendEmail() {
       if (!user) {
         console.log(`No user found for userId: ${analyticsUser.userId}`);
         continue;
+      }
+
+      // Check if the user's email exists and is valid using the regex
+      if (!user.email || !emailRegex.test(user.email)) {
+        console.log(`Invalid or missing email for userId: ${analyticsUser.userId}`);
+        continue; // Skip to the next user if the email is invalid
       }
 
       // Find the corresponding investment details from SipCalc using userId

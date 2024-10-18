@@ -302,9 +302,8 @@ exports.getCustomTimeSlotCounts = async (req, res) => {
         const istHour = (utcHour + 5) % 24; // Convert to IST, handle wraparound
 
         // Get the date as a string in dd/mm/yyyy format
-        const entryDate = `${entryTime.getUTCDate()}/${
-          entryTime.getUTCMonth() + 1
-        }/${entryTime.getUTCFullYear()}`;
+        const entryDate = `${entryTime.getUTCDate()}/${entryTime.getUTCMonth() + 1
+          }/${entryTime.getUTCFullYear()}`;
 
         // Initialize the counts for the date if it doesn't exist
         if (!dateCounts[entryDate]) {
@@ -453,8 +452,13 @@ exports.getFaceDetectionCount = async (req, res) => {
 };
 
 exports.getMascotCount = async (req, res) => {
+  const busIds = req.body.selectedBuses || {};
   const query = {};
   const { startDate, endDate, selectedTimeSlots = [], range } = req.body;
+
+  if (busIds[0] !== "all") {
+    query.macAddress = { $in: busIds };
+  }
 
   if (
     (startDate && endDate && selectedTimeSlots.length > 0, range === "custom")
